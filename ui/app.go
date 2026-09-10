@@ -56,7 +56,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		a.width = msg.Width
 		a.height = msg.Height
-		inner := msg.Height - 3 // tabs + status bar
+		inner := msg.Height - 5 // tabs (3 rows with padding) + status bar (2 rows)
 		a.taskList = a.taskList.setSize(msg.Width, inner)
 		a.dayView = a.dayView.setSize(msg.Width, inner)
 
@@ -100,7 +100,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.view = viewTaskList
 		tasks, _ := a.db.ListTasks("")
 		a.taskList = NewTaskListModel(tasks)
-		a.taskList = a.taskList.setSize(a.width, a.height-3)
+		a.taskList = a.taskList.setSize(a.width, a.height-5)
 		return a, nil
 
 	case startEntryMsg:
@@ -113,7 +113,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.view = viewTaskList
 		tasks, _ := a.db.ListTasks("")
 		a.taskList = NewTaskListModel(tasks)
-		a.taskList = a.taskList.setSize(a.width, a.height-3)
+		a.taskList = a.taskList.setSize(a.width, a.height-5)
 		return a, nil
 
 	case entryStoppedMsg:
@@ -157,11 +157,20 @@ func (a *App) View() string {
 
 func (a *App) renderTabs() string {
 	mk := func(label string, active bool) string {
-		s := lipgloss.NewStyle().Padding(0, 2)
 		if active {
-			return s.Bold(true).Foreground(colorHighlight).Render(label)
+			return lipgloss.NewStyle().
+				Padding(0, 1).
+				Margin(1, 1, 1, 2).
+				Bold(true).
+				Background(colorHighlight).
+				Foreground(lipgloss.Color("#ffffff")).
+				Render(label)
 		}
-		return s.Foreground(colorSubtle).Render(label)
+		return lipgloss.NewStyle().
+			Padding(0, 1).
+			Margin(1, 1, 1, 2).
+			Foreground(colorSubtle).
+			Render(label)
 	}
 	return lipgloss.JoinHorizontal(lipgloss.Top,
 		mk("[1] Tasks", a.view == viewTaskList || a.view == viewEntryForm || a.view == viewNewTask),
