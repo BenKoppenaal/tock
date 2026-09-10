@@ -24,21 +24,21 @@ func NewEntryFormModel(database *db.DB, task model.Task, active *model.Entry) En
 	comment := textinput.New()
 	comment.Placeholder = "Comment (optional)"
 	comment.CharLimit = 200
+	comment.Focus()
 
 	stopping := active != nil && active.TaskID == task.ID
 
-	m := EntryFormModel{
+	return EntryFormModel{
 		db:          database,
 		task:        task,
 		activeEntry: active,
 		comment:     comment,
 		stopping:    stopping,
 	}
-	return m
 }
 
 func (m EntryFormModel) Init() tea.Cmd {
-	return m.comment.Focus()
+	return m.comment.Focus() // returns cursor blink cmd
 }
 
 func (m EntryFormModel) Update(msg tea.Msg) (EntryFormModel, tea.Cmd) {

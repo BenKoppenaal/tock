@@ -33,6 +33,7 @@ func NewTaskFormModel(database *db.DB) TaskFormModel {
 	name := textinput.New()
 	name.Placeholder = "Task name"
 	name.CharLimit = 100
+	name.Focus()
 
 	note := textinput.New()
 	note.Placeholder = "Note (optional)"
@@ -46,6 +47,7 @@ func NewTaskEditFormModel(database *db.DB, task model.Task) TaskFormModel {
 	name.Placeholder = "Task name"
 	name.CharLimit = 100
 	name.SetValue(task.Name)
+	name.Focus()
 
 	note := textinput.New()
 	note.Placeholder = "Note (optional)"
