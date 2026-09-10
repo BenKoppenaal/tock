@@ -1,0 +1,183 @@
+package ui
+
+import (
+	"tock/db"
+	"tock/model"
+
+	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
+)
+
+type viewKind int
+
+const (
+	viewTaskList viewKind = iota
+	viewDay
+	viewEntryForm
+	viewNewTask
+)
+
+type App struct {
+	db          *db.DB
+	view        viewKind
+	taskList    TaskListModel
+	dayView     DayViewModel
+	entryForm   EntryFormModel
+	taskForm    TaskFormModel
+	activeEntry *model.Entry
+	width       int
+	height      int
+}
+
+func NewApp(database *db.DB) (*App, error) {
+	active, err := database.ActiveEntry()
+	if err != nil {
+		return nil, err
+	}
+	tasks, err := database.ListTasks("")
+	if err != nil {
+		return nil, err
+	}
+	return &App{
+		db:          database,
+		view:        viewTaskList,
+		activeEntry: active,
+		taskList:    NewTaskListModel(tasks),
+		dayView:     NewDayViewModel(database),
+	}, nil
+}
+
+func (a *App) Init() tea.Cmd {
+	return nil
+}
+
+func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		a.width = msg.Width
+		a.height = msg.Height
+		inner := msg.Height - 3 // tabs + status bar
+		a.taskList = a.taskList.setSize(msg.Width, inner)
+		a.dayView = a.dayView.setSize(msg.Width, inner)
+
+	case tea.KeyMsg:
+		switch msg.String() {
+		case "ctrl+c":
+			return a, tea.Quit
+		case "q":
+			if a.view != viewEntryForm {
+				return a, tea.Quit
+			}
+		case "1":
+			if a.view != viewEntryForm {
+				a.view = viewTaskList
+				return a, nil
+			}
+		case "2":
+			if a.view != viewEntryForm {
+				a.view = viewDay
+				return a, a.dayView.load()
+			}
+		case "n":
+			if a.view == viewTaskList {
+				a.taskForm = NewTaskFormModel(a.db)
+				a.view = viewNewTask
+				return a, a.taskForm.Init()
+			}
+		case "esc":
+			if a.view == viewEntryForm || a.view == viewNewTask {
+				a.view = viewTaskList
+				return a, nil
+			}
+		}
+
+	case openNewTaskMsg:
+		a.taskForm = NewTaskFormModel(a.db)
+		a.view = viewNewTask
+		return a, a.taskForm.Init()
+
+	case taskCreatedMsg:
+		a.view = viewTaskList
+		tasks, _ := a.db.ListTasks("")
+		a.taskList = NewTaskListModel(tasks)
+		a.taskList = a.taskList.setSize(a.width, a.height-3)
+		return a, nil
+
+	case startEntryMsg:
+		a.entryForm = NewEntryFormModel(a.db, msg.task, a.activeEntry)
+		a.view = viewEntryForm
+		return a, a.entryForm.Init()
+
+	case entrySavedMsg:
+		a.activeEntry = msg.entry
+		a.view = viewTaskList
+		tasks, _ := a.db.ListTasks("")
+		a.taskList = NewTaskListModel(tasks)
+		a.taskList = a.taskList.setSize(a.width, a.height-3)
+		return a, nil
+
+	case entryStoppedMsg:
+		a.activeEntry = nil
+		a.view = viewTaskList
+		return a, nil
+	}
+
+	var cmd tea.Cmd
+	switch a.view {
+	case viewTaskList:
+		a.taskList, cmd = a.taskList.Update(msg)
+	case viewDay:
+		a.dayView, cmd = a.dayView.Update(msg)
+	case viewEntryForm:
+		a.entryForm, cmd = a.entryForm.Update(msg)
+	case viewNewTask:
+		a.taskForm, cmd = a.taskForm.Update(msg)
+	}
+	return a, cmd
+}
+
+func (a *App) View() string {
+	var content string
+	switch a.view {
+	case viewTaskList:
+		content = a.taskList.View()
+	case viewDay:
+		content = a.dayView.View()
+	case viewEntryForm:
+		content = a.entryForm.View()
+	case viewNewTask:
+		content = a.taskForm.View()
+	}
+	return lipgloss.JoinVertical(lipgloss.Left,
+		a.renderTabs(),
+		content,
+		a.renderStatus(),
+	)
+}
+
+func (a *App) renderTabs() string {
+	mk := func(label string, active bool) string {
+		s := lipgloss.NewStyle().Padding(0, 2)
+		if active {
+			return s.Bold(true).Foreground(colorHighlight).Render(label)
+		}
+		return s.Foreground(colorSubtle).Render(label)
+	}
+	return lipgloss.JoinHorizontal(lipgloss.Top,
+		mk("[1] Tasks", a.view == viewTaskList || a.view == viewEntryForm || a.view == viewNewTask),
+		mk("[2] Day", a.view == viewDay),
+	)
+}
+
+func (a *App) renderStatus() string {
+	var msg string
+	if a.activeEntry != nil {
+		elapsed := a.activeEntry.Duration().Round(1e9)
+		msg = activeEntryStyle.Render("● ") +
+			a.activeEntry.TaskName +
+			helpStyle.Render("  "+elapsed.String())
+	} else {
+		msg = helpStyle.Render("No active entry")
+	}
+	return statusBarStyle.Width(a.width).Render(msg)
+}
