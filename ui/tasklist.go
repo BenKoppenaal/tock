@@ -19,6 +19,7 @@ func (t taskItem) Description() string { return t.Note }
 func (t taskItem) FilterValue() string { return t.Name }
 
 type startEntryMsg struct{ task model.Task }
+type editTaskMsg struct{ task model.Task }
 
 type taskDelegate struct {
 	activeTaskID int64
@@ -151,6 +152,12 @@ func (m TaskListModel) Update(msg tea.Msg) (TaskListModel, tea.Cmd) {
 				m = m.applyFilter()
 				return m, nil
 			}
+		case "e":
+			if !m.search.Focused() {
+				if item, ok := m.list.SelectedItem().(taskItem); ok {
+					return m, func() tea.Msg { return editTaskMsg{task: item.Task} }
+				}
+			}
 		case "enter":
 			if m.search.Focused() {
 				m.search.Blur()
@@ -177,7 +184,7 @@ func (m TaskListModel) Update(msg tea.Msg) (TaskListModel, tea.Cmd) {
 }
 
 func (m TaskListModel) View() string {
-	help := helpStyle.Render("n: new task  / search  enter: start/stop  q: quit")
+	help := helpStyle.Render("n: new  e: edit  / search  enter: start/stop  q: quit")
 	if m.search.Focused() {
 		return lipgloss.JoinVertical(lipgloss.Left,
 			lipgloss.NewStyle().PaddingLeft(2).Render(m.search.View()),

@@ -15,6 +15,7 @@ const (
 	viewDay
 	viewEntryForm
 	viewNewTask
+	viewEditTask
 )
 
 type App struct {
@@ -65,16 +66,16 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "ctrl+c":
 			return a, tea.Quit
 		case "q":
-			if a.view != viewEntryForm {
+			if a.view == viewTaskList || a.view == viewDay {
 				return a, tea.Quit
 			}
 		case "1":
-			if a.view != viewEntryForm {
+			if a.view == viewTaskList || a.view == viewDay {
 				a.view = viewTaskList
 				return a, nil
 			}
 		case "2":
-			if a.view != viewEntryForm {
+			if a.view == viewTaskList || a.view == viewDay {
 				a.view = viewDay
 				return a, a.dayView.load()
 			}
@@ -85,7 +86,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return a, a.taskForm.Init()
 			}
 		case "esc":
-			if a.view == viewEntryForm || a.view == viewNewTask {
+			if a.view == viewEntryForm || a.view == viewNewTask || a.view == viewEditTask {
 				a.view = viewTaskList
 				return a, nil
 			}
@@ -96,7 +97,19 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.view = viewNewTask
 		return a, a.taskForm.Init()
 
+	case editTaskMsg:
+		a.taskForm = NewTaskEditFormModel(a.db, msg.task)
+		a.view = viewEditTask
+		return a, a.taskForm.Init()
+
 	case taskCreatedMsg:
+		a.view = viewTaskList
+		tasks, _ := a.db.ListTasks("")
+		a.taskList = NewTaskListModel(tasks, activeTaskID(a.activeEntry))
+		a.taskList = a.taskList.setSize(a.width, a.height-5)
+		return a, nil
+
+	case taskUpdatedMsg:
 		a.view = viewTaskList
 		tasks, _ := a.db.ListTasks("")
 		a.taskList = NewTaskListModel(tasks, activeTaskID(a.activeEntry))
@@ -133,7 +146,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.dayView, cmd = a.dayView.Update(msg)
 	case viewEntryForm:
 		a.entryForm, cmd = a.entryForm.Update(msg)
-	case viewNewTask:
+	case viewNewTask, viewEditTask:
 		a.taskForm, cmd = a.taskForm.Update(msg)
 	}
 	return a, cmd
@@ -148,7 +161,7 @@ func (a *App) View() string {
 		content = a.dayView.View()
 	case viewEntryForm:
 		content = a.entryForm.View()
-	case viewNewTask:
+	case viewNewTask, viewEditTask:
 		content = a.taskForm.View()
 	}
 	return lipgloss.JoinVertical(lipgloss.Left,
@@ -176,7 +189,7 @@ func (a *App) renderTabs() string {
 			Render(label)
 	}
 	return lipgloss.JoinHorizontal(lipgloss.Top,
-		mk("[1] Tasks", a.view == viewTaskList || a.view == viewEntryForm || a.view == viewNewTask),
+		mk("[1] Tasks", a.view == viewTaskList || a.view == viewEntryForm || a.view == viewNewTask || a.view == viewEditTask),
 		mk("[2] Day", a.view == viewDay),
 	)
 }

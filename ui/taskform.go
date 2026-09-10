@@ -10,6 +10,7 @@ import (
 )
 
 type taskCreatedMsg struct{ task model.Task }
+type taskUpdatedMsg struct{ task model.Task }
 type openNewTaskMsg struct{}
 
 type field int
@@ -21,6 +22,7 @@ const (
 
 type TaskFormModel struct {
 	db     *db.DB
+	taskID int64 // 0 = new, >0 = edit
 	name   textinput.Model
 	note   textinput.Model
 	active field
@@ -37,6 +39,20 @@ func NewTaskFormModel(database *db.DB) TaskFormModel {
 	note.CharLimit = 200
 
 	return TaskFormModel{db: database, name: name, note: note, active: fieldName}
+}
+
+func NewTaskEditFormModel(database *db.DB, task model.Task) TaskFormModel {
+	name := textinput.New()
+	name.Placeholder = "Task name"
+	name.CharLimit = 100
+	name.SetValue(task.Name)
+
+	note := textinput.New()
+	note.Placeholder = "Note (optional)"
+	note.CharLimit = 200
+	note.SetValue(task.Note)
+
+	return TaskFormModel{db: database, taskID: task.ID, name: name, note: note, active: fieldName}
 }
 
 func (m TaskFormModel) Init() tea.Cmd {
@@ -61,7 +77,6 @@ func (m TaskFormModel) Update(msg tea.Msg) (TaskFormModel, tea.Cmd) {
 			}
 		case "enter":
 			if m.active == fieldName && m.note.Value() == "" {
-				// tab to note on first enter if note is empty
 				m.name.Blur()
 				m.active = fieldNote
 				return m, m.note.Focus()
@@ -71,12 +86,20 @@ func (m TaskFormModel) Update(msg tea.Msg) (TaskFormModel, tea.Cmd) {
 				m.err = "Name is required"
 				return m, nil
 			}
-			task, err := m.db.CreateTask(name, m.note.Value())
-			if err != nil {
+			if m.taskID == 0 {
+				task, err := m.db.CreateTask(name, m.note.Value())
+				if err != nil {
+					m.err = err.Error()
+					return m, nil
+				}
+				return m, func() tea.Msg { return taskCreatedMsg{task: task} }
+			}
+			if err := m.db.UpdateTask(m.taskID, name, m.note.Value()); err != nil {
 				m.err = err.Error()
 				return m, nil
 			}
-			return m, func() tea.Msg { return taskCreatedMsg{task: task} }
+			task := model.Task{ID: m.taskID, Name: name, Note: m.note.Value()}
+			return m, func() tea.Msg { return taskUpdatedMsg{task: task} }
 		}
 	}
 
@@ -90,6 +113,11 @@ func (m TaskFormModel) Update(msg tea.Msg) (TaskFormModel, tea.Cmd) {
 }
 
 func (m TaskFormModel) View() string {
+	title := "New task"
+	if m.taskID != 0 {
+		title = "Edit task"
+	}
+
 	box := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(colorHighlight).
@@ -102,7 +130,7 @@ func (m TaskFormModel) View() string {
 	}
 
 	content := lipgloss.JoinVertical(lipgloss.Left,
-		titleStyle.Render("New task"),
+		titleStyle.Render(title),
 		"",
 		m.name.View(),
 		m.note.View(),

@@ -31,6 +31,11 @@ func (d *DB) ListTasks(search string) ([]model.Task, error) {
 	return tasks, rows.Err()
 }
 
+func (d *DB) UpdateTask(id int64, name, note string) error {
+	_, err := d.conn.Exec(`UPDATE tasks SET name = ?, note = ? WHERE id = ?`, name, note, id)
+	return err
+}
+
 func (d *DB) DeleteTask(id int64) error {
 	_, err := d.conn.Exec(`DELETE FROM tasks WHERE id = ?`, id)
 	return err
