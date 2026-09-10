@@ -42,7 +42,7 @@ func NewApp(database *db.DB) (*App, error) {
 		db:          database,
 		view:        viewTaskList,
 		activeEntry: active,
-		taskList:    NewTaskListModel(tasks),
+		taskList:    NewTaskListModel(tasks, activeTaskID(active)),
 		dayView:     NewDayViewModel(database),
 	}, nil
 }
@@ -99,7 +99,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case taskCreatedMsg:
 		a.view = viewTaskList
 		tasks, _ := a.db.ListTasks("")
-		a.taskList = NewTaskListModel(tasks)
+		a.taskList = NewTaskListModel(tasks, activeTaskID(a.activeEntry))
 		a.taskList = a.taskList.setSize(a.width, a.height-5)
 		return a, nil
 
@@ -112,13 +112,16 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.activeEntry = msg.entry
 		a.view = viewTaskList
 		tasks, _ := a.db.ListTasks("")
-		a.taskList = NewTaskListModel(tasks)
+		a.taskList = NewTaskListModel(tasks, activeTaskID(a.activeEntry))
 		a.taskList = a.taskList.setSize(a.width, a.height-5)
 		return a, nil
 
 	case entryStoppedMsg:
 		a.activeEntry = nil
 		a.view = viewTaskList
+		tasks, _ := a.db.ListTasks("")
+		a.taskList = NewTaskListModel(tasks, 0)
+		a.taskList = a.taskList.setSize(a.width, a.height-5)
 		return a, nil
 	}
 
@@ -189,4 +192,11 @@ func (a *App) renderStatus() string {
 		msg = helpStyle.Render("No active entry")
 	}
 	return statusBarStyle.Width(a.width).Render(msg)
+}
+
+func activeTaskID(e *model.Entry) int64 {
+	if e == nil {
+		return 0
+	}
+	return e.TaskID
 }
