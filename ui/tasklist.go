@@ -5,6 +5,7 @@ import (
 	"io"
 	"strings"
 	"time"
+	"tock/db"
 	"tock/model"
 
 	"github.com/charmbracelet/bubbles/list"
@@ -21,6 +22,7 @@ func (t taskItem) FilterValue() string { return t.Name }
 
 type startEntryMsg struct{ task model.Task }
 type editTaskMsg struct{ task model.Task }
+type taskDeletedMsg struct{}
 
 type taskDelegate struct {
 	activeTaskID int64
@@ -108,15 +110,26 @@ func max(a, b int) int {
 	return b
 }
 
+type taskConfirm int
+
+const (
+	confirmNone taskConfirm = iota
+	confirmTaskDelete
+	confirmTaskArchive
+)
+
 type TaskListModel struct {
+	db           *db.DB
 	list         list.Model
 	search       textinput.Model
 	allTasks     []model.Task
 	activeTaskID int64
 	totals       map[int64]time.Duration
+	confirm      taskConfirm
+	confirmTask  model.Task
 }
 
-func NewTaskListModel(tasks []model.Task, activeTaskID int64, totals map[int64]time.Duration) TaskListModel {
+func NewTaskListModel(database *db.DB, tasks []model.Task, activeTaskID int64, totals map[int64]time.Duration) TaskListModel {
 	items := toListItems(activeFirstTasks(tasks, activeTaskID))
 
 	l := list.New(items, taskDelegate{activeTaskID: activeTaskID, totals: totals}, 0, 0)
@@ -129,7 +142,7 @@ func NewTaskListModel(tasks []model.Task, activeTaskID int64, totals map[int64]t
 	search.Placeholder = "Search tasks..."
 	search.CharLimit = 100
 
-	return TaskListModel{list: l, search: search, allTasks: tasks, activeTaskID: activeTaskID, totals: totals}
+	return TaskListModel{db: database, list: l, search: search, allTasks: tasks, activeTaskID: activeTaskID, totals: totals}
 }
 
 func (m TaskListModel) setSize(w, h int) TaskListModel {
@@ -183,11 +196,38 @@ func (m TaskListModel) Update(msg tea.Msg) (TaskListModel, tea.Cmd) {
 				return m, m.search.Focus()
 			}
 		case "esc":
+			if m.confirm != confirmNone {
+				m.confirm = confirmNone
+				return m, nil
+			}
 			if m.search.Focused() {
 				m.search.Blur()
 				m.search.SetValue("")
 				m = m.applyFilter()
 				return m, nil
+			}
+		case "d":
+			if !m.search.Focused() && m.confirm == confirmNone {
+				if item, ok := m.list.SelectedItem().(taskItem); ok {
+					m.confirmTask = item.Task
+					if m.totals[item.ID] > 0 {
+						m.confirm = confirmTaskArchive
+					} else {
+						m.confirm = confirmTaskDelete
+					}
+					return m, nil
+				}
+			}
+		case "y":
+			if m.confirm == confirmTaskDelete {
+				m.db.DeleteTask(m.confirmTask.ID) //nolint:errcheck
+				m.confirm = confirmNone
+				return m, func() tea.Msg { return taskDeletedMsg{} }
+			}
+			if m.confirm == confirmTaskArchive {
+				m.db.ArchiveTask(m.confirmTask.ID) //nolint:errcheck
+				m.confirm = confirmNone
+				return m, func() tea.Msg { return taskDeletedMsg{} }
 			}
 		case "e":
 			if !m.search.Focused() {
@@ -221,7 +261,17 @@ func (m TaskListModel) Update(msg tea.Msg) (TaskListModel, tea.Cmd) {
 }
 
 func (m TaskListModel) View() string {
-	help := helpStyle.Render("n: new  e: edit  / search  enter: start/stop  q: quit")
+	var help string
+	switch m.confirm {
+	case confirmTaskDelete:
+		help = lipgloss.NewStyle().Foreground(lipgloss.Color("#ff5555")).Bold(true).
+			Render(fmt.Sprintf("Delete \"%s\"? y to confirm  esc to cancel", m.confirmTask.Name))
+	case confirmTaskArchive:
+		help = lipgloss.NewStyle().Foreground(lipgloss.Color("#ff5555")).Bold(true).
+			Render(fmt.Sprintf("Archive \"%s\"? y to confirm  esc to cancel", m.confirmTask.Name))
+	default:
+		help = helpStyle.Render("n: new  e: edit  d: delete/archive  / search  enter: start/stop  q: quit")
+	}
 	if m.search.Focused() {
 		return lipgloss.JoinVertical(lipgloss.Left,
 			lipgloss.NewStyle().PaddingLeft(2).Render(m.search.View()),

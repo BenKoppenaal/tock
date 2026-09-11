@@ -20,7 +20,7 @@ func (d *DB) ListTasks(search string) ([]model.Task, error) {
 			FROM entries
 			GROUP BY task_id
 		) e ON e.task_id = t.id
-		WHERE t.name LIKE ?
+		WHERE t.name LIKE ? AND t.archived = 0
 		ORDER BY COALESCE(e.last_tracked, 0) DESC, t.name`,
 		"%"+search+"%",
 	)
@@ -41,6 +41,11 @@ func (d *DB) ListTasks(search string) ([]model.Task, error) {
 
 func (d *DB) UpdateTask(id int64, name, note string) error {
 	_, err := d.conn.Exec(`UPDATE tasks SET name = ?, note = ? WHERE id = ?`, name, note, id)
+	return err
+}
+
+func (d *DB) ArchiveTask(id int64) error {
+	_, err := d.conn.Exec(`UPDATE tasks SET archived = 1 WHERE id = ?`, id)
 	return err
 }
 

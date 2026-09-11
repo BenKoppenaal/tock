@@ -48,7 +48,7 @@ func NewApp(database *db.DB) (*App, error) {
 		db:          database,
 		view:        viewTaskList,
 		activeEntry: active,
-		taskList:    NewTaskListModel(tasks, activeTaskID(active), totals),
+		taskList:    NewTaskListModel(database, tasks, activeTaskID(active), totals),
 		dayView:     NewDayViewModel(database),
 	}, nil
 }
@@ -57,7 +57,7 @@ func NewApp(database *db.DB) (*App, error) {
 func (a *App) refreshTaskList() {
 	tasks, _ := a.db.ListTasks("")
 	totals, _ := a.db.TotalTimeByTask()
-	a.taskList = NewTaskListModel(tasks, activeTaskID(a.activeEntry), totals)
+	a.taskList = NewTaskListModel(a.db, tasks, activeTaskID(a.activeEntry), totals)
 	a.taskList = a.taskList.setSize(a.width, a.height-5)
 }
 
@@ -118,6 +118,10 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.taskForm = NewTaskEditFormModel(a.db, msg.task)
 		a.view = viewEditTask
 		return a, a.taskForm.Init()
+
+	case taskDeletedMsg:
+		a.refreshTaskList()
+		return a, nil
 
 	case taskCreatedMsg:
 		a.view = viewTaskList

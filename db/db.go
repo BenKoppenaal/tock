@@ -45,7 +45,12 @@ func (d *DB) migrate() error {
 			comment    TEXT NOT NULL DEFAULT ''
 		);
 	`)
-	return err
+	if err != nil {
+		return err
+	}
+	// add archived column to existing DBs; ignore error if it already exists
+	_, _ = d.conn.Exec(`ALTER TABLE tasks ADD COLUMN archived INTEGER NOT NULL DEFAULT 0`)
+	return nil
 }
 
 func (d *DB) Close() error { return d.conn.Close() }
