@@ -78,6 +78,9 @@ func (d taskDelegate) Render(w io.Writer, m list.Model, index int, item list.Ite
 			name = name[:max(0, nameAvail-1)] + "…"
 		}
 		gap := nameAvail - len(name)
+		if gap < 0 {
+			gap = 0
+		}
 		titleContent = nameStyle.Render(name) + strings.Repeat(" ", gap) + " " + durStyle.Render(durStr)
 	} else {
 		titleContent = nameStyle.Render(t.Name)
