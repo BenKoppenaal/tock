@@ -12,8 +12,8 @@ import (
 )
 
 const (
-	dayStartHour = 7
-	dayEndHour   = 22
+	dayStartHour = 0
+	dayEndHour   = 24
 	rowsPerHour  = 4 // 15-min resolution per row
 )
 
@@ -23,11 +23,12 @@ type dayLoadedMsg struct {
 }
 
 type DayViewModel struct {
-	db      *db.DB
-	day     time.Time
-	entries []model.Entry
-	width   int
-	height  int
+	db           *db.DB
+	day          time.Time
+	entries      []model.Entry
+	width        int
+	height       int
+	scrollOffset int
 }
 
 func NewDayViewModel(database *db.DB) DayViewModel {
@@ -67,6 +68,19 @@ func (m DayViewModel) Update(msg tea.Msg) (DayViewModel, tea.Cmd) {
 		case "t":
 			m.day = time.Now()
 			return m, m.load()
+		case "up", "k":
+			if m.scrollOffset > 0 {
+				m.scrollOffset--
+			}
+		case "down", "j":
+			totalRows := (dayEndHour - dayStartHour) * rowsPerHour
+			visibleRows := m.height - 4
+			if visibleRows < 1 {
+				visibleRows = 1
+			}
+			if m.scrollOffset < totalRows-visibleRows {
+				m.scrollOffset++
+			}
 		}
 	}
 	return m, nil
@@ -151,9 +165,19 @@ func (m DayViewModel) View() string {
 		rows[row] = gutter + cell
 	}
 
+	visibleRows := m.height - 4 // header + blank line + help + slack
+	if visibleRows < 1 {
+		visibleRows = 10
+	}
+	start := m.scrollOffset
+	end := start + visibleRows
+	if end > totalRows {
+		end = totalRows
+	}
+
 	header := lipgloss.NewStyle().PaddingLeft(1).Render(titleStyle.Render(m.day.Format("Monday, January 2 2006")))
-	help := helpStyle.Render("← → days  t: today  1: tasks")
-	timeline := lipgloss.NewStyle().PaddingLeft(marginLeft).Render(strings.Join(rows, "\n"))
+	help := helpStyle.Render("← → days  t: today  ↑↓ scroll  1: tasks")
+	timeline := lipgloss.NewStyle().PaddingLeft(marginLeft).Render(strings.Join(rows[start:end], "\n"))
 
 	return lipgloss.JoinVertical(lipgloss.Left,
 		header,
