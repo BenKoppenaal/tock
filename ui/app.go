@@ -39,13 +39,25 @@ func NewApp(database *db.DB) (*App, error) {
 	if err != nil {
 		return nil, err
 	}
+	totals, err := database.TotalTimeByTask()
+	if err != nil {
+		return nil, err
+	}
 	return &App{
 		db:          database,
 		view:        viewTaskList,
 		activeEntry: active,
-		taskList:    NewTaskListModel(tasks, activeTaskID(active)),
+		taskList:    NewTaskListModel(tasks, activeTaskID(active), totals),
 		dayView:     NewDayViewModel(database),
 	}, nil
+}
+
+// refreshTaskList reloads tasks and totals from the DB and rebuilds the task list model.
+func (a *App) refreshTaskList() {
+	tasks, _ := a.db.ListTasks("")
+	totals, _ := a.db.TotalTimeByTask()
+	a.taskList = NewTaskListModel(tasks, activeTaskID(a.activeEntry), totals)
+	a.taskList = a.taskList.setSize(a.width, a.height-5)
 }
 
 func (a *App) Init() tea.Cmd {
@@ -104,16 +116,12 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case taskCreatedMsg:
 		a.view = viewTaskList
-		tasks, _ := a.db.ListTasks("")
-		a.taskList = NewTaskListModel(tasks, activeTaskID(a.activeEntry))
-		a.taskList = a.taskList.setSize(a.width, a.height-5)
+		a.refreshTaskList()
 		return a, nil
 
 	case taskUpdatedMsg:
 		a.view = viewTaskList
-		tasks, _ := a.db.ListTasks("")
-		a.taskList = NewTaskListModel(tasks, activeTaskID(a.activeEntry))
-		a.taskList = a.taskList.setSize(a.width, a.height-5)
+		a.refreshTaskList()
 		return a, nil
 
 	case startEntryMsg:
@@ -124,17 +132,13 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case entrySavedMsg:
 		a.activeEntry = msg.entry
 		a.view = viewTaskList
-		tasks, _ := a.db.ListTasks("")
-		a.taskList = NewTaskListModel(tasks, activeTaskID(a.activeEntry))
-		a.taskList = a.taskList.setSize(a.width, a.height-5)
+		a.refreshTaskList()
 		return a, nil
 
 	case entryStoppedMsg:
 		a.activeEntry = nil
 		a.view = viewTaskList
-		tasks, _ := a.db.ListTasks("")
-		a.taskList = NewTaskListModel(tasks, 0)
-		a.taskList = a.taskList.setSize(a.width, a.height-5)
+		a.refreshTaskList()
 		return a, nil
 	}
 

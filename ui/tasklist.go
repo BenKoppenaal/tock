@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"time"
 	"tock/model"
 
 	"github.com/charmbracelet/bubbles/list"
@@ -23,6 +24,7 @@ type editTaskMsg struct{ task model.Task }
 
 type taskDelegate struct {
 	activeTaskID int64
+	totals       map[int64]time.Duration
 }
 
 func (d taskDelegate) Height() int                                { return 2 }
@@ -38,38 +40,69 @@ func (d taskDelegate) Render(w io.Writer, m list.Model, index int, item list.Ite
 	isSelected := index == m.Index()
 	isActive := d.activeTaskID != 0 && t.ID == d.activeTaskID
 
-	var titleStyle, descStyle lipgloss.Style
-
-	leftBorder := lipgloss.NewStyle().
-		Border(lipgloss.NormalBorder(), false, false, false, true).
-		Padding(0, 0, 0, 1)
-
+	// Determine per-state colors
+	var nameFg, descFg lipgloss.TerminalColor
 	switch {
 	case isActive:
-		titleStyle = leftBorder.
-			BorderForeground(colorActive).
-			Foreground(colorActive).
-			Bold(isSelected)
-		descStyle = lipgloss.NewStyle().
-			Foreground(colorActive).
-			Padding(0, 0, 0, 2)
+		nameFg = colorActive
+		descFg = colorActive
 	case isSelected:
-		titleStyle = leftBorder.
-			BorderForeground(colorHighlight).
-			Foreground(colorHighlight)
-		descStyle = lipgloss.NewStyle().
-			Foreground(colorSubtle).
-			Padding(0, 0, 0, 2)
+		nameFg = colorHighlight
+		descFg = colorSubtle
 	default:
-		titleStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.AdaptiveColor{Light: "#1a1a1a", Dark: "#dddddd"}).
-			Padding(0, 0, 0, 2)
-		descStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.AdaptiveColor{Light: "#A49FA5", Dark: "#777777"}).
-			Padding(0, 0, 0, 2)
+		nameFg = lipgloss.AdaptiveColor{Light: "#1a1a1a", Dark: "#dddddd"}
+		descFg = lipgloss.AdaptiveColor{Light: "#A49FA5", Dark: "#777777"}
 	}
 
-	fmt.Fprintf(w, "%s\n%s", titleStyle.Render(t.Name), descStyle.Render(t.Note)) //nolint:errcheck
+	// Left decoration is always 2 cols (border+pad or just pad)
+	avail := m.Width() - 2
+	if avail < 8 {
+		avail = 8
+	}
+
+	// Build title: name left, total right-aligned
+	dur := d.totals[t.ID]
+	durStr := ""
+	if dur > 0 {
+		durStr = formatDuration(dur)
+	}
+
+	var titleContent string
+	nameStyle := lipgloss.NewStyle().Foreground(nameFg).Bold(isActive && isSelected)
+	durStyle := lipgloss.NewStyle().Foreground(colorMuted)
+
+	if durStr != "" {
+		nameAvail := avail - len(durStr) - 1
+		name := t.Name
+		if len(name) > nameAvail {
+			name = name[:max(0, nameAvail-1)] + "…"
+		}
+		gap := nameAvail - len(name)
+		titleContent = nameStyle.Render(name) + strings.Repeat(" ", gap) + " " + durStyle.Render(durStr)
+	} else {
+		titleContent = nameStyle.Render(t.Name)
+	}
+
+	// Container provides left border or padding
+	var container lipgloss.Style
+	if isActive || isSelected {
+		container = lipgloss.NewStyle().
+			Border(lipgloss.NormalBorder(), false, false, false, true).
+			BorderForeground(nameFg).
+			Padding(0, 0, 0, 1)
+	} else {
+		container = lipgloss.NewStyle().Padding(0, 0, 0, 2)
+	}
+
+	descStyle := lipgloss.NewStyle().Foreground(descFg).Padding(0, 0, 0, 2)
+	fmt.Fprintf(w, "%s\n%s", container.Render(titleContent), descStyle.Render(t.Note)) //nolint:errcheck
+}
+
+func max(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
 }
 
 type TaskListModel struct {
@@ -77,12 +110,13 @@ type TaskListModel struct {
 	search       textinput.Model
 	allTasks     []model.Task
 	activeTaskID int64
+	totals       map[int64]time.Duration
 }
 
-func NewTaskListModel(tasks []model.Task, activeTaskID int64) TaskListModel {
+func NewTaskListModel(tasks []model.Task, activeTaskID int64, totals map[int64]time.Duration) TaskListModel {
 	items := toListItems(activeFirstTasks(tasks, activeTaskID))
 
-	l := list.New(items, taskDelegate{activeTaskID: activeTaskID}, 0, 0)
+	l := list.New(items, taskDelegate{activeTaskID: activeTaskID, totals: totals}, 0, 0)
 	l.SetShowTitle(false)
 	l.SetShowHelp(false)
 	l.SetFilteringEnabled(false)
@@ -92,7 +126,7 @@ func NewTaskListModel(tasks []model.Task, activeTaskID int64) TaskListModel {
 	search.Placeholder = "Search tasks..."
 	search.CharLimit = 100
 
-	return TaskListModel{list: l, search: search, allTasks: tasks, activeTaskID: activeTaskID}
+	return TaskListModel{list: l, search: search, allTasks: tasks, activeTaskID: activeTaskID, totals: totals}
 }
 
 func (m TaskListModel) setSize(w, h int) TaskListModel {

@@ -47,6 +47,27 @@ func (d *DB) ActiveEntry() (*model.Entry, error) {
 	return &e, nil
 }
 
+func (d *DB) TotalTimeByTask() (map[int64]time.Duration, error) {
+	rows, err := d.conn.Query(`
+		SELECT task_id, SUM(COALESCE(end_time, CAST(strftime('%s','now') AS INTEGER)) - start_time)
+		FROM entries
+		GROUP BY task_id
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	totals := make(map[int64]time.Duration)
+	for rows.Next() {
+		var taskID, seconds int64
+		if err := rows.Scan(&taskID, &seconds); err != nil {
+			return nil, err
+		}
+		totals[taskID] = time.Duration(seconds) * time.Second
+	}
+	return totals, rows.Err()
+}
+
 func (d *DB) EntriesForDay(day time.Time) ([]model.Entry, error) {
 	start := time.Date(day.Year(), day.Month(), day.Day(), 0, 0, 0, 0, day.Location())
 	end := start.Add(24 * time.Hour)
