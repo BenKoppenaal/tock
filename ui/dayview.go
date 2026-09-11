@@ -22,6 +22,8 @@ type dayLoadedMsg struct {
 	day     time.Time
 }
 
+type editEntryMsg struct{ entry model.Entry }
+
 type DayViewModel struct {
 	db           *db.DB
 	day          time.Time
@@ -29,12 +31,14 @@ type DayViewModel struct {
 	width        int
 	height       int
 	scrollOffset int
+	selectedIdx  int // -1 = none
 }
 
 func NewDayViewModel(database *db.DB) DayViewModel {
 	return DayViewModel{
-		db:  database,
-		day: time.Now(),
+		db:          database,
+		day:         time.Now(),
+		selectedIdx: -1,
 	}
 }
 
@@ -69,22 +73,43 @@ func (m DayViewModel) scrollForNow() int {
 	return offset
 }
 
+func (m DayViewModel) scrollToSelected() DayViewModel {
+	if m.selectedIdx < 0 || m.selectedIdx >= len(m.entries) {
+		return m
+	}
+	entryRow := m.timeToRow(m.entries[m.selectedIdx].StartTime)
+	visibleRows := m.height - 4
+	if visibleRows < 1 {
+		visibleRows = 1
+	}
+	if entryRow < m.scrollOffset {
+		m.scrollOffset = entryRow
+	} else if entryRow >= m.scrollOffset+visibleRows {
+		m.scrollOffset = entryRow - visibleRows + 1
+	}
+	return m
+}
+
 func (m DayViewModel) Update(msg tea.Msg) (DayViewModel, tea.Cmd) {
 	switch msg := msg.(type) {
 	case dayLoadedMsg:
 		m.entries = msg.entries
 		m.day = msg.day
 		m.scrollOffset = m.scrollForNow()
+		m.selectedIdx = -1
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "left", "h":
 			m.day = m.day.AddDate(0, 0, -1)
+			m.selectedIdx = -1
 			return m, m.load()
 		case "right", "l":
 			m.day = m.day.AddDate(0, 0, 1)
+			m.selectedIdx = -1
 			return m, m.load()
 		case "t":
 			m.day = time.Now()
+			m.selectedIdx = -1
 			return m, m.load()
 		case "up", "k":
 			if m.scrollOffset > 0 {
@@ -99,6 +124,31 @@ func (m DayViewModel) Update(msg tea.Msg) (DayViewModel, tea.Cmd) {
 			if m.scrollOffset < totalRows-visibleRows {
 				m.scrollOffset++
 			}
+		case "tab":
+			if len(m.entries) > 0 {
+				if m.selectedIdx < 0 {
+					m.selectedIdx = 0
+				} else {
+					m.selectedIdx = (m.selectedIdx + 1) % len(m.entries)
+				}
+				m = m.scrollToSelected()
+			}
+		case "shift+tab":
+			if len(m.entries) > 0 {
+				if m.selectedIdx < 0 {
+					m.selectedIdx = len(m.entries) - 1
+				} else {
+					m.selectedIdx = (m.selectedIdx - 1 + len(m.entries)) % len(m.entries)
+				}
+				m = m.scrollToSelected()
+			}
+		case "e":
+			if m.selectedIdx >= 0 && m.selectedIdx < len(m.entries) {
+				entry := m.entries[m.selectedIdx]
+				return m, func() tea.Msg { return editEntryMsg{entry: entry} }
+			}
+		case "esc":
+			m.selectedIdx = -1
 		}
 	}
 	return m, nil
@@ -169,17 +219,23 @@ func (m DayViewModel) View() string {
 			if row < s.startRow || row >= s.endRow {
 				continue
 			}
+			isSelected := s.colorIdx == m.selectedIdx
 			color := blockColors[s.colorIdx%len(blockColors)]
 			style := lipgloss.NewStyle().
 				Background(color).
 				Foreground(lipgloss.Color("#ffffff")).
+				Bold(isSelected).
 				Width(blockW)
 
 			if row == s.startRow {
 				dur := s.entry.Duration().Round(time.Minute)
-				label := fmt.Sprintf(" %s  %s", s.entry.TaskName, formatDuration(dur))
+				prefix := " "
+				if isSelected {
+					prefix = "▸"
+				}
+				label := fmt.Sprintf("%s%s  %s", prefix, s.entry.TaskName, formatDuration(dur))
 				if len(label) > blockW {
-					label = " " + s.entry.TaskName
+					label = prefix + s.entry.TaskName
 					if len(label) > blockW {
 						label = label[:blockW]
 					}
@@ -205,7 +261,7 @@ func (m DayViewModel) View() string {
 	}
 
 	header := lipgloss.NewStyle().PaddingLeft(1).Render(titleStyle.Render(m.day.Format("Monday, January 2 2006")))
-	help := helpStyle.Render("← → days  t: today  ↑↓ scroll  1: tasks")
+	help := helpStyle.Render("← → days  t: today  ↑↓ scroll  tab: select  e: edit  1: tasks")
 	timeline := lipgloss.NewStyle().PaddingLeft(marginLeft - 1).Render(strings.Join(rows[start:end], "\n"))
 
 	return lipgloss.JoinVertical(lipgloss.Left,

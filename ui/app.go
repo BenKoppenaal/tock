@@ -14,6 +14,7 @@ const (
 	viewTaskList viewKind = iota
 	viewDay
 	viewEntryForm
+	viewEditEntry
 	viewNewTask
 	viewEditTask
 )
@@ -102,6 +103,10 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				a.view = viewTaskList
 				return a, nil
 			}
+			if a.view == viewEditEntry {
+				a.view = viewDay
+				return a, nil
+			}
 		}
 
 	case openNewTaskMsg:
@@ -123,6 +128,16 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.view = viewTaskList
 		a.refreshTaskList()
 		return a, nil
+
+	case editEntryMsg:
+		a.entryForm = NewEntryEditFormModel(a.db, msg.entry)
+		a.view = viewEditEntry
+		return a, a.entryForm.Init()
+
+	case entryEditedMsg:
+		a.view = viewDay
+		a.refreshTaskList()
+		return a, a.dayView.load()
 
 	case startEntryMsg:
 		a.entryForm = NewEntryFormModel(a.db, msg.task, a.activeEntry)
@@ -148,7 +163,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.taskList, cmd = a.taskList.Update(msg)
 	case viewDay:
 		a.dayView, cmd = a.dayView.Update(msg)
-	case viewEntryForm:
+	case viewEntryForm, viewEditEntry:
 		a.entryForm, cmd = a.entryForm.Update(msg)
 	case viewNewTask, viewEditTask:
 		a.taskForm, cmd = a.taskForm.Update(msg)
@@ -163,7 +178,7 @@ func (a *App) View() string {
 		content = a.taskList.View()
 	case viewDay:
 		content = a.dayView.View()
-	case viewEntryForm:
+	case viewEntryForm, viewEditEntry:
 		content = a.entryForm.View()
 	case viewNewTask, viewEditTask:
 		content = a.taskForm.View()

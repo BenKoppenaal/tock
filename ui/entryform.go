@@ -12,6 +12,7 @@ import (
 
 type entrySavedMsg struct{ entry *model.Entry }
 type entryStoppedMsg struct{}
+type entryEditedMsg struct{}
 
 const timeInputLayout = "15:04"
 
@@ -28,6 +29,7 @@ type EntryFormModel struct {
 	fields      []formField
 	focused     int
 	stopping    bool
+	editing     bool
 	stopTime    time.Time // captured when form opens
 }
 
@@ -78,6 +80,28 @@ func NewEntryFormModel(database *db.DB, task model.Task, active *model.Entry) En
 	}
 }
 
+func NewEntryEditFormModel(database *db.DB, entry model.Entry) EntryFormModel {
+	endVal := ""
+	if entry.EndTime != nil {
+		endVal = entry.EndTime.Format(timeInputLayout)
+	}
+	fields := []formField{
+		newTimeField("Start time", entry.StartTime.Format(timeInputLayout)),
+		newTimeField("End time", endVal),
+		newCommentField(entry.Comment),
+	}
+	fields[0].input.Focus()
+	return EntryFormModel{
+		db:          database,
+		task:        model.Task{ID: entry.TaskID, Name: entry.TaskName},
+		activeEntry: &entry,
+		fields:      fields,
+		focused:     0,
+		editing:     true,
+		stopTime:    time.Now(),
+	}
+}
+
 func (m EntryFormModel) Init() tea.Cmd {
 	return textinput.Blink
 }
@@ -121,6 +145,17 @@ func (m EntryFormModel) Update(msg tea.Msg) (EntryFormModel, tea.Cmd) {
 			return m, cmd
 
 		case "enter":
+			if m.editing {
+				startTime := m.parseTime(m.fields[0].input.Value(), m.activeEntry.StartTime)
+				ref := m.stopTime
+				if m.activeEntry.EndTime != nil {
+					ref = *m.activeEntry.EndTime
+				}
+				endTime := m.parseTime(m.fields[1].input.Value(), ref)
+				comment := m.fields[2].input.Value()
+				_ = m.db.UpdateEntry(m.activeEntry.ID, startTime, endTime, comment)
+				return m, func() tea.Msg { return entryEditedMsg{} }
+			}
 			if m.stopping {
 				startTime := m.parseTime(m.fields[0].input.Value(), m.activeEntry.StartTime)
 				endTime := m.parseTime(m.fields[1].input.Value(), m.stopTime)
@@ -148,7 +183,10 @@ func (m EntryFormModel) Update(msg tea.Msg) (EntryFormModel, tea.Cmd) {
 
 func (m EntryFormModel) View() string {
 	action := "Start tracking"
-	if m.stopping {
+	switch {
+	case m.editing:
+		action = "Edit entry"
+	case m.stopping:
 		action = "Stop tracking"
 	}
 
