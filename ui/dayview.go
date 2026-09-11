@@ -75,7 +75,8 @@ func (m DayViewModel) Update(msg tea.Msg) (DayViewModel, tea.Cmd) {
 func (m DayViewModel) View() string {
 	totalRows := (dayEndHour - dayStartHour) * rowsPerHour
 	gutterW := 6
-	blockW := m.width - gutterW - 1
+	marginLeft := 2
+	blockW := m.width - gutterW - 1 - marginLeft
 	if blockW < 10 {
 		blockW = 10
 	}
@@ -150,12 +151,14 @@ func (m DayViewModel) View() string {
 		rows[row] = gutter + cell
 	}
 
-	header := titleStyle.Render(m.day.Format("Monday, January 2 2006"))
+	header := lipgloss.NewStyle().PaddingLeft(1).Render(titleStyle.Render(m.day.Format("Monday, January 2 2006")))
 	help := helpStyle.Render("← → days  t: today  1: tasks")
+	timeline := lipgloss.NewStyle().PaddingLeft(marginLeft).Render(strings.Join(rows, "\n"))
 
 	return lipgloss.JoinVertical(lipgloss.Left,
 		header,
-		strings.Join(rows, "\n"),
+		"",
+		timeline,
 		help,
 	)
 }
