@@ -6,23 +6,22 @@ import (
 	"tock/model"
 )
 
-func (d *DB) StartEntry(taskID int64) (model.Entry, error) {
-	now := time.Now()
+func (d *DB) StartEntry(taskID int64, startTime time.Time, comment string) (model.Entry, error) {
 	res, err := d.conn.Exec(
-		`INSERT INTO entries (task_id, start_time) VALUES (?, ?)`,
-		taskID, now.Unix(),
+		`INSERT INTO entries (task_id, start_time, comment) VALUES (?, ?, ?)`,
+		taskID, startTime.Unix(), comment,
 	)
 	if err != nil {
 		return model.Entry{}, err
 	}
 	id, _ := res.LastInsertId()
-	return model.Entry{ID: id, TaskID: taskID, StartTime: now}, nil
+	return model.Entry{ID: id, TaskID: taskID, StartTime: startTime, Comment: comment}, nil
 }
 
-func (d *DB) StopEntry(id int64, comment string) error {
+func (d *DB) StopEntry(id int64, startTime time.Time, endTime time.Time, comment string) error {
 	_, err := d.conn.Exec(
-		`UPDATE entries SET end_time = ?, comment = ? WHERE id = ?`,
-		time.Now().Unix(), comment, id,
+		`UPDATE entries SET start_time = ?, end_time = ?, comment = ? WHERE id = ?`,
+		startTime.Unix(), endTime.Unix(), comment, id,
 	)
 	return err
 }
