@@ -12,8 +12,16 @@ func (d *DB) CreateTask(name, note string) (model.Task, error) {
 }
 
 func (d *DB) ListTasks(search string) ([]model.Task, error) {
-	rows, err := d.conn.Query(
-		`SELECT id, name, note FROM tasks WHERE name LIKE ? ORDER BY name`,
+	rows, err := d.conn.Query(`
+		SELECT t.id, t.name, t.note
+		FROM tasks t
+		LEFT JOIN (
+			SELECT task_id, MAX(start_time) AS last_tracked
+			FROM entries
+			GROUP BY task_id
+		) e ON e.task_id = t.id
+		WHERE t.name LIKE ?
+		ORDER BY COALESCE(e.last_tracked, 0) DESC, t.name`,
 		"%"+search+"%",
 	)
 	if err != nil {
