@@ -52,11 +52,29 @@ func (m DayViewModel) setSize(w, h int) DayViewModel {
 	return m
 }
 
+func (m DayViewModel) scrollForNow() int {
+	row := m.timeToRow(time.Now())
+	visibleRows := m.height - 4
+	if visibleRows < 1 {
+		visibleRows = 10
+	}
+	totalRows := (dayEndHour - dayStartHour) * rowsPerHour
+	offset := row - visibleRows/3
+	if offset < 0 {
+		offset = 0
+	}
+	if offset > totalRows-visibleRows {
+		offset = totalRows - visibleRows
+	}
+	return offset
+}
+
 func (m DayViewModel) Update(msg tea.Msg) (DayViewModel, tea.Cmd) {
 	switch msg := msg.(type) {
 	case dayLoadedMsg:
 		m.entries = msg.entries
 		m.day = msg.day
+		m.scrollOffset = m.scrollForNow()
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "left", "h":
@@ -118,11 +136,22 @@ func (m DayViewModel) View() string {
 		spans = append(spans, span{entry: e, colorIdx: i, startRow: sr, endRow: er})
 	}
 
+	now := time.Now()
+	isToday := m.day.Year() == now.Year() && m.day.YearDay() == now.YearDay()
+	nowRow := m.timeToRow(now)
+
+	nowIndicator := lipgloss.NewStyle().Foreground(colorActive).Bold(true).Render("▸")
+
 	rows := make([]string, totalRows)
 	for row := 0; row < totalRows; row++ {
 		totalMins := row * (60 / rowsPerHour)
 		h := dayStartHour + totalMins/60
 		min := totalMins % 60
+
+		indicator := " "
+		if isToday && row == nowRow {
+			indicator = nowIndicator
+		}
 
 		var gutter string
 		if min == 0 {
@@ -162,7 +191,7 @@ func (m DayViewModel) View() string {
 			break
 		}
 
-		rows[row] = gutter + cell
+		rows[row] = indicator + gutter + cell
 	}
 
 	visibleRows := m.height - 4 // header + blank line + help + slack
@@ -177,7 +206,7 @@ func (m DayViewModel) View() string {
 
 	header := lipgloss.NewStyle().PaddingLeft(1).Render(titleStyle.Render(m.day.Format("Monday, January 2 2006")))
 	help := helpStyle.Render("← → days  t: today  ↑↓ scroll  1: tasks")
-	timeline := lipgloss.NewStyle().PaddingLeft(marginLeft).Render(strings.Join(rows[start:end], "\n"))
+	timeline := lipgloss.NewStyle().PaddingLeft(marginLeft - 1).Render(strings.Join(rows[start:end], "\n"))
 
 	return lipgloss.JoinVertical(lipgloss.Left,
 		header,
