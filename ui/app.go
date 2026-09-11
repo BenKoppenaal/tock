@@ -129,6 +129,10 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.refreshTaskList()
 		return a, nil
 
+	case entryDeletedMsg:
+		a.refreshTaskList()
+		return a, nil
+
 	case editEntryMsg:
 		a.entryForm = NewEntryEditFormModel(a.db, msg.entry)
 		a.view = viewEditEntry

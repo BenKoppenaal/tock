@@ -46,6 +46,11 @@ func (d *DB) ActiveEntry() (*model.Entry, error) {
 	return &e, nil
 }
 
+func (d *DB) DeleteEntry(id int64) error {
+	_, err := d.conn.Exec(`DELETE FROM entries WHERE id = ?`, id)
+	return err
+}
+
 func (d *DB) UpdateEntry(id int64, startTime time.Time, endTime time.Time, comment string) error {
 	_, err := d.conn.Exec(
 		`UPDATE entries SET start_time = ?, end_time = ?, comment = ? WHERE id = ?`,

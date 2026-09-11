@@ -23,15 +23,17 @@ type dayLoadedMsg struct {
 }
 
 type editEntryMsg struct{ entry model.Entry }
+type entryDeletedMsg struct{}
 
 type DayViewModel struct {
-	db           *db.DB
-	day          time.Time
-	entries      []model.Entry
-	width        int
-	height       int
-	scrollOffset int
-	selectedIdx  int // -1 = none
+	db            *db.DB
+	day           time.Time
+	entries       []model.Entry
+	width         int
+	height        int
+	scrollOffset  int
+	selectedIdx   int // -1 = none
+	confirmDelete bool
 }
 
 func NewDayViewModel(database *db.DB) DayViewModel {
@@ -147,8 +149,24 @@ func (m DayViewModel) Update(msg tea.Msg) (DayViewModel, tea.Cmd) {
 				entry := m.entries[m.selectedIdx]
 				return m, func() tea.Msg { return editEntryMsg{entry: entry} }
 			}
+		case "d":
+			if m.selectedIdx >= 0 && m.selectedIdx < len(m.entries) {
+				m.confirmDelete = true
+			}
+		case "y":
+			if m.confirmDelete && m.selectedIdx >= 0 && m.selectedIdx < len(m.entries) {
+				entry := m.entries[m.selectedIdx]
+				m.db.DeleteEntry(entry.ID) //nolint:errcheck
+				m.confirmDelete = false
+				m.selectedIdx = -1
+				return m, tea.Batch(m.load(), func() tea.Msg { return entryDeletedMsg{} })
+			}
 		case "esc":
-			m.selectedIdx = -1
+			if m.confirmDelete {
+				m.confirmDelete = false
+			} else {
+				m.selectedIdx = -1
+			}
 		}
 	}
 	return m, nil
@@ -261,14 +279,19 @@ func (m DayViewModel) View() string {
 	}
 
 	header := lipgloss.NewStyle().PaddingLeft(1).Render(titleStyle.Render(m.day.Format("Monday, January 2 2006")))
-	help := helpStyle.Render("← → days  t: today  ↑↓ scroll  tab: select  e: edit  1: tasks")
+	var helpText string
+	if m.confirmDelete {
+		helpText = lipgloss.NewStyle().Foreground(lipgloss.Color("#ff5555")).Bold(true).Render("Delete entry? y to confirm  esc to cancel")
+	} else {
+		helpText = helpStyle.Render("← → days  t: today  ↑↓ scroll  tab: select  e: edit  d: delete  1: tasks")
+	}
 	timeline := lipgloss.NewStyle().PaddingLeft(marginLeft - 1).Render(strings.Join(rows[start:end], "\n"))
 
 	return lipgloss.JoinVertical(lipgloss.Left,
 		header,
 		"",
 		timeline,
-		help,
+		helpText,
 	)
 }
 
