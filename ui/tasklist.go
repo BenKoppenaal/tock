@@ -56,8 +56,8 @@ func (d taskDelegate) Render(w io.Writer, m list.Model, index int, item list.Ite
 		descFg = lipgloss.AdaptiveColor{Light: "#A49FA5", Dark: "#777777"}
 	}
 
-	// Left decoration is always 2 cols (border+pad or just pad)
-	avail := m.Width() - 2
+	// Left decoration is always 2 cols (border+pad or just pad); 2 cols right margin
+	avail := m.Width() - 4
 	if avail < 8 {
 		avail = 8
 	}
@@ -99,8 +99,31 @@ func (d taskDelegate) Render(w io.Writer, m list.Model, index int, item list.Ite
 		container = lipgloss.NewStyle().Padding(0, 0, 0, 2)
 	}
 
-	descStyle := lipgloss.NewStyle().Foreground(descFg).Padding(0, 0, 0, 2)
-	fmt.Fprintf(w, "%s\n%s", container.Render(titleContent), descStyle.Render(t.Note)) //nolint:errcheck
+	// Build note line: note left, last tracked date right-aligned
+	var line2 string
+	dateStr := ""
+	if t.LastTracked != nil {
+		dateStr = t.LastTracked.Format("2006-01-02")
+	}
+	descAvail := avail
+	if dateStr != "" {
+		noteAvail := descAvail - len(dateStr) - 1
+		note := t.Note
+		if len(note) > noteAvail {
+			note = note[:max(0, noteAvail-1)] + "…"
+		}
+		gap := noteAvail - len(note)
+		if gap < 0 {
+			gap = 0
+		}
+		noteStyled := lipgloss.NewStyle().Foreground(descFg).Render(note)
+		dateStyled := lipgloss.NewStyle().Foreground(colorMuted).Render(dateStr)
+		line2 = "  " + noteStyled + strings.Repeat(" ", gap) + " " + dateStyled
+	} else {
+		descStyle := lipgloss.NewStyle().Foreground(descFg).Padding(0, 0, 0, 2)
+		line2 = descStyle.Render(t.Note)
+	}
+	fmt.Fprintf(w, "%s\n%s", container.Render(titleContent), line2) //nolint:errcheck
 }
 
 func max(a, b int) int {

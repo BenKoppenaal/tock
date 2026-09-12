@@ -1,6 +1,10 @@
 package db
 
-import "tock/model"
+import (
+	"database/sql"
+	"time"
+	"tock/model"
+)
 
 func (d *DB) CreateTask(name, note string) (model.Task, error) {
 	res, err := d.conn.Exec(`INSERT INTO tasks (name, note) VALUES (?, ?)`, name, note)
@@ -13,7 +17,7 @@ func (d *DB) CreateTask(name, note string) (model.Task, error) {
 
 func (d *DB) ListTasks(search string) ([]model.Task, error) {
 	rows, err := d.conn.Query(`
-		SELECT t.id, t.name, t.note
+		SELECT t.id, t.name, t.note, e.last_tracked
 		FROM tasks t
 		LEFT JOIN (
 			SELECT task_id, MAX(start_time) AS last_tracked
@@ -31,8 +35,13 @@ func (d *DB) ListTasks(search string) ([]model.Task, error) {
 	var tasks []model.Task
 	for rows.Next() {
 		var t model.Task
-		if err := rows.Scan(&t.ID, &t.Name, &t.Note); err != nil {
+		var lastTrackedUnix sql.NullInt64
+		if err := rows.Scan(&t.ID, &t.Name, &t.Note, &lastTrackedUnix); err != nil {
 			return nil, err
+		}
+		if lastTrackedUnix.Valid {
+			ts := time.Unix(lastTrackedUnix.Int64, 0)
+			t.LastTracked = &ts
 		}
 		tasks = append(tasks, t)
 	}
