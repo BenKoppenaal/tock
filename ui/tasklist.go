@@ -73,20 +73,22 @@ func (d taskDelegate) Render(w io.Writer, m list.Model, index int, item list.Ite
 	nameStyle := lipgloss.NewStyle().Foreground(nameFg).Bold(isActive && isSelected)
 	durStyle := lipgloss.NewStyle().Foreground(colorMuted)
 
-	if durStr != "" {
-		nameAvail := avail - len(durStr) - 1
-		name := t.Name
-		if len(name) > nameAvail {
-			name = name[:max(0, nameAvail-1)] + "…"
-		}
-		gap := nameAvail - len(name)
-		if gap < 0 {
-			gap = 0
-		}
-		titleContent = nameStyle.Render(name) + strings.Repeat(" ", gap) + " " + durStyle.Render(durStr)
-	} else {
-		titleContent = nameStyle.Render(t.Name)
+	rightLabel := durStr
+	rightStyle := durStyle
+	if rightLabel == "" {
+		rightLabel = "n/a"
+		rightStyle = lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "#C0BBBC", Dark: "#555555"})
 	}
+	nameAvail := avail - len(rightLabel) - 1
+	name := t.Name
+	if len(name) > nameAvail {
+		name = name[:max(0, nameAvail-1)] + "…"
+	}
+	gap := nameAvail - len(name)
+	if gap < 0 {
+		gap = 0
+	}
+	titleContent = nameStyle.Render(name) + strings.Repeat(" ", gap) + " " + rightStyle.Render(rightLabel)
 
 	// Container provides left border or padding
 	var container lipgloss.Style
