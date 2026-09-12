@@ -3,7 +3,7 @@ package ui
 import "github.com/charmbracelet/lipgloss"
 
 var (
-	colorHighlight = lipgloss.AdaptiveColor{Light: "#874BFD", Dark: "#7D56F4"}
+	colorHighlight = lipgloss.AdaptiveColor{Light: "#0369A1", Dark: "#0891B2"}
 	colorSubtle    = lipgloss.AdaptiveColor{Light: "#D9DCCF", Dark: "#383838"}
 	colorActive    = lipgloss.AdaptiveColor{Light: "#43BF6D", Dark: "#73F59F"}
 	colorMuted     = lipgloss.Color("#666666")
@@ -29,7 +29,7 @@ var (
 			Width(6)
 
 	blockColors = []lipgloss.Color{
-		"#7D56F4",
+		"#0891B2",
 		"#56A0D3",
 		"#43BF6D",
 		"#F4A556",
