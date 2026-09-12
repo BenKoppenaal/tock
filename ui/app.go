@@ -212,7 +212,7 @@ func (a *App) renderTabs() string {
 		return lipgloss.NewStyle().
 			Padding(0, 1).
 			Margin(1, 1, 1, 2).
-			Foreground(colorSubtle).
+			Foreground(lipgloss.AdaptiveColor{Light: "#A49FA5", Dark: "#777777"}).
 			Render(label)
 	}
 	return lipgloss.JoinHorizontal(lipgloss.Top,

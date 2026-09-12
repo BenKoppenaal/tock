@@ -50,7 +50,7 @@ func (d taskDelegate) Render(w io.Writer, m list.Model, index int, item list.Ite
 		descFg = colorActive
 	case isSelected:
 		nameFg = colorHighlight
-		descFg = colorSubtle
+		descFg = lipgloss.AdaptiveColor{Light: "#A49FA5", Dark: "#777777"}
 	default:
 		nameFg = lipgloss.AdaptiveColor{Light: "#1a1a1a", Dark: "#dddddd"}
 		descFg = lipgloss.AdaptiveColor{Light: "#A49FA5", Dark: "#777777"}
@@ -118,12 +118,11 @@ func (d taskDelegate) Render(w io.Writer, m list.Model, index int, item list.Ite
 		}
 		noteStyled := lipgloss.NewStyle().Foreground(descFg).Render(note)
 		dateStyled := lipgloss.NewStyle().Foreground(colorMuted).Render(dateStr)
-		line2 = "  " + noteStyled + strings.Repeat(" ", gap) + " " + dateStyled
+		line2 = noteStyled + strings.Repeat(" ", gap) + " " + dateStyled
 	} else {
-		descStyle := lipgloss.NewStyle().Foreground(descFg).Padding(0, 0, 0, 2)
-		line2 = descStyle.Render(t.Note)
+		line2 = lipgloss.NewStyle().Foreground(descFg).Render(t.Note)
 	}
-	fmt.Fprintf(w, "%s\n%s", container.Render(titleContent), line2) //nolint:errcheck
+	fmt.Fprintf(w, "%s", container.Render(titleContent+"\n"+line2)) //nolint:errcheck
 }
 
 func max(a, b int) int {
