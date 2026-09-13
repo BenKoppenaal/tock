@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 	"tock/db"
@@ -186,6 +187,7 @@ func (m DayViewModel) View() string {
 		colorIdx int
 		startRow int
 		endRow   int
+		col      int
 	}
 
 	spans := make([]span, 0, len(m.entries))
@@ -202,6 +204,21 @@ func (m DayViewModel) View() string {
 			er = totalRows
 		}
 		spans = append(spans, span{entry: e, colorIdx: i, startRow: sr, endRow: er})
+	}
+
+	// Assign columns: greedy lowest-free-column among overlapping spans
+	for i := range spans {
+		used := map[int]bool{}
+		for j := 0; j < i; j++ {
+			if spans[j].startRow < spans[i].endRow && spans[i].startRow < spans[j].endRow {
+				used[spans[j].col] = true
+			}
+		}
+		col := 0
+		for used[col] {
+			col++
+		}
+		spans[i].col = col
 	}
 
 	now := time.Now()
@@ -232,37 +249,54 @@ func (m DayViewModel) View() string {
 			gutter = timeGutterStyle.Render("  " + tick + "   ")
 		}
 
-		cell := strings.Repeat(" ", blockW)
+		// Collect spans active in this row, sorted by column
+		var active []span
 		for _, s := range spans {
-			if row < s.startRow || row >= s.endRow {
-				continue
+			if row >= s.startRow && row < s.endRow {
+				active = append(active, s)
 			}
-			isSelected := s.colorIdx == m.selectedIdx
-			color := blockColors[s.colorIdx%len(blockColors)]
-			style := lipgloss.NewStyle().
-				Background(color).
-				Foreground(lipgloss.Color("#ffffff")).
-				Bold(isSelected).
-				Width(blockW)
+		}
+		sort.Slice(active, func(i, j int) bool { return active[i].col < active[j].col })
 
-			if row == s.startRow {
-				dur := s.entry.Duration().Round(time.Second)
-				prefix := " "
-				if isSelected {
-					prefix = "▸"
+		var cell string
+		if len(active) == 0 {
+			cell = strings.Repeat(" ", blockW)
+		} else {
+			numCols := len(active)
+			baseW := blockW / numCols
+			var parts []string
+			for ci, s := range active {
+				w := baseW
+				if ci == numCols-1 {
+					w = blockW - baseW*(numCols-1)
 				}
-				label := fmt.Sprintf("%s%s  %s", prefix, s.entry.TaskName, formatDuration(dur))
-				if len(label) > blockW {
-					label = prefix + s.entry.TaskName
-					if len(label) > blockW {
-						label = label[:blockW]
+				isSelected := s.colorIdx == m.selectedIdx
+				color := blockColors[s.colorIdx%len(blockColors)]
+				style := lipgloss.NewStyle().
+					Background(color).
+					Foreground(lipgloss.Color("#ffffff")).
+					Bold(isSelected).
+					Width(w)
+
+				var content string
+				if row == s.startRow {
+					dur := s.entry.Duration().Round(time.Second)
+					prefix := " "
+					if isSelected {
+						prefix = "▸"
 					}
+					label := fmt.Sprintf("%s%s  %s", prefix, s.entry.TaskName, formatDuration(dur))
+					if len(label) > w {
+						label = prefix + s.entry.TaskName
+						if len(label) > w {
+							label = label[:w]
+						}
+					}
+					content = label
 				}
-				cell = style.Render(label)
-			} else {
-				cell = style.Render("")
+				parts = append(parts, style.Render(content))
 			}
-			break
+			cell = strings.Join(parts, "")
 		}
 
 		rows[row] = indicator + gutter + cell
