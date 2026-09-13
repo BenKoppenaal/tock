@@ -1,12 +1,19 @@
 package ui
 
 import (
+	"time"
 	"tock/db"
 	"tock/model"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
+
+type tickMsg struct{}
+
+func tick() tea.Cmd {
+	return tea.Tick(time.Second, func(time.Time) tea.Msg { return tickMsg{} })
+}
 
 type viewKind int
 
@@ -62,7 +69,7 @@ func (a *App) refreshTaskList() {
 }
 
 func (a *App) Init() tea.Cmd {
-	return nil
+	return tick()
 }
 
 func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -70,7 +77,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		a.width = msg.Width
 		a.height = msg.Height
-		inner := msg.Height - 5 // tabs (3 rows with padding) + status bar (2 rows)
+		inner := msg.Height - 3 // tabs (3 rows with padding)
 		a.taskList = a.taskList.setSize(msg.Width, inner)
 		a.dayView = a.dayView.setSize(msg.Width, inner)
 
@@ -163,6 +170,9 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.view = viewTaskList
 		a.refreshTaskList()
 		return a, nil
+
+	case tickMsg:
+		return a, tick()
 	}
 
 	var cmd tea.Cmd
@@ -194,7 +204,6 @@ func (a *App) View() string {
 	return lipgloss.JoinVertical(lipgloss.Left,
 		a.renderTabs(),
 		content,
-		a.renderStatus(),
 	)
 }
 
@@ -215,23 +224,38 @@ func (a *App) renderTabs() string {
 			Foreground(lipgloss.AdaptiveColor{Light: "#A49FA5", Dark: "#777777"}).
 			Render(label)
 	}
-	return lipgloss.JoinHorizontal(lipgloss.Top,
+	tabs := lipgloss.JoinHorizontal(lipgloss.Top,
 		mk("[1] Tasks", a.view == viewTaskList || a.view == viewEntryForm || a.view == viewNewTask || a.view == viewEditTask),
 		mk("[2] Day", a.view == viewDay),
 	)
-}
+	title := lipgloss.NewStyle().
+		Padding(0, 1).
+		Margin(1, 2, 1, 1).
+		Bold(true).
+		Background(colorHighlight).
+		Foreground(lipgloss.Color("#ffffff")).
+		Render("Tock")
 
-func (a *App) renderStatus() string {
-	var msg string
+	var activeInfo string
 	if a.activeEntry != nil {
+		name := a.activeEntry.TaskName
+		if len(name) > 20 {
+			name = name[:19] + "…"
+		}
 		elapsed := a.activeEntry.Duration().Round(1e9)
-		msg = activeEntryStyle.Render("● ") +
-			a.activeEntry.TaskName +
-			helpStyle.Render("  "+elapsed.String())
-	} else {
-		msg = helpStyle.Render("No active entry")
+		activeInfo = lipgloss.NewStyle().
+			Margin(1, 1, 1, 0).
+			Foreground(colorActive).
+			Render("● " + name + " " + formatDuration(elapsed))
 	}
-	return statusBarStyle.Width(a.width).Render(msg)
+
+	rightWidth := lipgloss.Width(activeInfo) + lipgloss.Width(title)
+	gap := a.width - lipgloss.Width(tabs) - rightWidth
+	if gap < 0 {
+		gap = 0
+	}
+	spacer := lipgloss.NewStyle().Width(gap).Render("")
+	return lipgloss.JoinHorizontal(lipgloss.Top, tabs, spacer, activeInfo, title)
 }
 
 func activeTaskID(e *model.Entry) int64 {

@@ -191,7 +191,7 @@ func (m DayViewModel) View() string {
 	spans := make([]span, 0, len(m.entries))
 	for i, e := range m.entries {
 		sr := m.timeToRow(e.StartTime)
-		er := m.timeToRow(m.entryEnd(e))
+		er := m.timeToEndRow(m.entryEnd(e))
 		if er <= sr {
 			er = sr + 1
 		}
@@ -246,7 +246,7 @@ func (m DayViewModel) View() string {
 				Width(blockW)
 
 			if row == s.startRow {
-				dur := s.entry.Duration().Round(time.Minute)
+				dur := s.entry.Duration().Round(time.Second)
 				prefix := " "
 				if isSelected {
 					prefix = "▸"
@@ -298,6 +298,12 @@ func (m DayViewModel) View() string {
 func (m DayViewModel) timeToRow(t time.Time) int {
 	totalMins := (t.Hour()-dayStartHour)*60 + t.Minute()
 	return totalMins * rowsPerHour / 60
+}
+
+func (m DayViewModel) timeToEndRow(t time.Time) int {
+	secsPerRow := 3600 / rowsPerHour
+	totalSecs := (t.Hour()-dayStartHour)*3600 + t.Minute()*60 + t.Second()
+	return (totalSecs + secsPerRow - 1) / secsPerRow
 }
 
 func (m DayViewModel) entryEnd(e model.Entry) time.Time {

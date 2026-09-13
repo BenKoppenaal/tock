@@ -23,14 +23,16 @@ type formField struct {
 }
 
 type EntryFormModel struct {
-	db          *db.DB
-	task        model.Task
-	activeEntry *model.Entry
-	fields      []formField
-	focused     int
-	stopping    bool
-	editing     bool
-	stopTime    time.Time // captured when form opens
+	db           *db.DB
+	task         model.Task
+	activeEntry  *model.Entry
+	fields       []formField
+	focused      int
+	stopping     bool
+	editing      bool
+	stopTime     time.Time // captured when form opens
+	startNow     time.Time // exact time.Now() when form opened, for new entries
+	startDefault string    // pre-filled start time string, to detect user edits
 }
 
 func newTimeField(label, value string) formField {
@@ -69,14 +71,17 @@ func NewEntryFormModel(database *db.DB, task model.Task, active *model.Entry) En
 	}
 	fields[0].input.Focus()
 
+	startDefault := now.Format(timeInputLayout)
 	return EntryFormModel{
-		db:          database,
-		task:        task,
-		activeEntry: active,
-		fields:      fields,
-		focused:     0,
-		stopping:    stopping,
-		stopTime:    now,
+		db:           database,
+		task:         task,
+		activeEntry:  active,
+		fields:       fields,
+		focused:      0,
+		stopping:     stopping,
+		stopTime:     now,
+		startNow:     now,
+		startDefault: startDefault,
 	}
 }
 
@@ -111,7 +116,11 @@ func (m EntryFormModel) parseTime(s string, ref time.Time) time.Time {
 	if err != nil {
 		return ref
 	}
-	return time.Date(ref.Year(), ref.Month(), ref.Day(), t.Hour(), t.Minute(), 0, 0, ref.Location())
+	sec := 0
+	if t.Hour() == ref.Hour() && t.Minute() == ref.Minute() {
+		sec = ref.Second()
+	}
+	return time.Date(ref.Year(), ref.Month(), ref.Day(), t.Hour(), t.Minute(), sec, 0, ref.Location())
 }
 
 func (m EntryFormModel) Update(msg tea.Msg) (EntryFormModel, tea.Cmd) {
@@ -163,12 +172,18 @@ func (m EntryFormModel) Update(msg tea.Msg) (EntryFormModel, tea.Cmd) {
 				_ = m.db.StopEntry(m.activeEntry.ID, startTime, endTime, comment)
 				return m, func() tea.Msg { return entryStoppedMsg{} }
 			}
-			startTime := m.parseTime(m.fields[0].input.Value(), time.Now())
+			var startTime time.Time
+			if m.fields[0].input.Value() == m.startDefault {
+				startTime = m.startNow
+			} else {
+				startTime = m.parseTime(m.fields[0].input.Value(), m.startNow)
+			}
 			comment := m.fields[1].input.Value()
 			if m.activeEntry != nil {
 				_ = m.db.StopEntry(m.activeEntry.ID, m.activeEntry.StartTime, time.Now(), "")
 			}
 			entry, _ := m.db.StartEntry(m.task.ID, startTime, comment)
+			entry.TaskName = m.task.Name
 			return m, func() tea.Msg { return entrySavedMsg{entry: &entry} }
 		}
 	}
