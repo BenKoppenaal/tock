@@ -151,6 +151,8 @@ type TaskListModel struct {
 	totals       map[int64]time.Duration
 	confirm      taskConfirm
 	confirmTask  model.Task
+	width        int
+	height       int
 }
 
 func NewTaskListModel(database *db.DB, tasks []model.Task, activeTaskID int64, totals map[int64]time.Duration) TaskListModel {
@@ -170,7 +172,9 @@ func NewTaskListModel(database *db.DB, tasks []model.Task, activeTaskID int64, t
 }
 
 func (m TaskListModel) setSize(w, h int) TaskListModel {
-	m.list.SetSize(w, h-4)
+	m.width = w
+	m.height = h
+	m.list.SetSize(w, h-2)
 	return m
 }
 
@@ -296,15 +300,20 @@ func (m TaskListModel) View() string {
 	default:
 		help = helpStyle.Render("n: new  e: edit  d: delete/archive  / search  enter: start/stop  q: quit")
 	}
+	help = lipgloss.NewStyle().PaddingLeft(2).Render(help)
 	if m.search.Focused() {
+		l := m.list
+		l.SetSize(m.width, m.height-3)
 		return lipgloss.JoinVertical(lipgloss.Left,
 			lipgloss.NewStyle().PaddingLeft(2).Render(m.search.View()),
-			m.list.View(),
+			l.View(),
 			help,
+			"",
 		)
 	}
 	return lipgloss.JoinVertical(lipgloss.Left,
 		m.list.View(),
 		help,
+		"",
 	)
 }

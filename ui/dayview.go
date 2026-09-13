@@ -302,7 +302,7 @@ func (m DayViewModel) View() string {
 		rows[row] = indicator + gutter + cell
 	}
 
-	visibleRows := m.height - 4 // header + blank line + help + slack
+	visibleRows := m.height - 4 // header + blank line + help + empty row below help
 	if visibleRows < 1 {
 		visibleRows = 10
 	}
@@ -315,9 +315,9 @@ func (m DayViewModel) View() string {
 	header := lipgloss.NewStyle().PaddingLeft(1).Render(titleStyle.Render(m.day.Format("Monday, January 2 2006")))
 	var helpText string
 	if m.confirmDelete {
-		helpText = lipgloss.NewStyle().Foreground(lipgloss.Color("#ff5555")).Bold(true).Render("Delete entry? y to confirm  esc to cancel")
+		helpText = lipgloss.NewStyle().PaddingLeft(2).Foreground(lipgloss.Color("#ff5555")).Bold(true).Render("Delete entry? y to confirm  esc to cancel")
 	} else {
-		helpText = helpStyle.Render("← → days  t: today  ↑↓ scroll  tab: select  e: edit  d: delete  1: tasks")
+		helpText = lipgloss.NewStyle().PaddingLeft(2).Render(helpStyle.Render("← → days  t: today  ↑↓ scroll  tab: select  e: edit  d: delete  1: tasks"))
 	}
 	timeline := lipgloss.NewStyle().PaddingLeft(marginLeft - 1).Render(strings.Join(rows[start:end], "\n"))
 
@@ -326,6 +326,7 @@ func (m DayViewModel) View() string {
 		"",
 		timeline,
 		helpText,
+		"",
 	)
 }
 
