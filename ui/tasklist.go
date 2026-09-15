@@ -174,7 +174,7 @@ func NewTaskListModel(database *db.DB, tasks []model.Task, activeTaskID int64, t
 func (m TaskListModel) setSize(w, h int) TaskListModel {
 	m.width = w
 	m.height = h
-	m.list.SetSize(w, h-2)
+	m.list.SetSize(w, h)
 	return m
 }
 
@@ -288,32 +288,27 @@ func (m TaskListModel) Update(msg tea.Msg) (TaskListModel, tea.Cmd) {
 	return m, tea.Batch(cmds...)
 }
 
-func (m TaskListModel) View() string {
-	var help string
+func (m TaskListModel) HelpText() string {
 	switch m.confirm {
 	case confirmTaskDelete:
-		help = lipgloss.NewStyle().Foreground(lipgloss.Color("#ff5555")).Bold(true).
+		return lipgloss.NewStyle().Foreground(lipgloss.Color("#ff5555")).Bold(true).
 			Render(fmt.Sprintf("Delete \"%s\"? y to confirm  esc to cancel", m.confirmTask.Name))
 	case confirmTaskArchive:
-		help = lipgloss.NewStyle().Foreground(lipgloss.Color("#ff5555")).Bold(true).
+		return lipgloss.NewStyle().Foreground(lipgloss.Color("#ff5555")).Bold(true).
 			Render(fmt.Sprintf("Archive \"%s\"? y to confirm  esc to cancel", m.confirmTask.Name))
 	default:
-		help = helpStyle.Render("n: new  e: edit  d: delete/archive  / search  enter: start/stop  q: quit")
+		return helpStyle.Render("n: new  e: edit  d: delete/archive  / search  enter: start/stop  q: quit")
 	}
-	help = lipgloss.NewStyle().PaddingLeft(2).Render(help)
+}
+
+func (m TaskListModel) View() string {
 	if m.search.Focused() {
 		l := m.list
-		l.SetSize(m.width, m.height-3)
+		l.SetSize(m.width, m.height-1)
 		return lipgloss.JoinVertical(lipgloss.Left,
 			lipgloss.NewStyle().PaddingLeft(2).Render(m.search.View()),
 			l.View(),
-			help,
-			"",
 		)
 	}
-	return lipgloss.JoinVertical(lipgloss.Left,
-		m.list.View(),
-		help,
-		"",
-	)
+	return m.list.View()
 }

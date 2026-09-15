@@ -66,7 +66,7 @@ func (a *App) refreshTaskList() {
 	tasks, _ := a.db.ListTasks("")
 	totals, _ := a.db.TotalTimeByTask()
 	a.taskList = NewTaskListModel(a.db, tasks, activeTaskID(a.activeEntry), totals)
-	a.taskList = a.taskList.setSize(a.width, a.height-5)
+	a.taskList = a.taskList.setSize(a.width, a.height-4)
 }
 
 func (a *App) Init() tea.Cmd {
@@ -78,7 +78,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		a.width = msg.Width
 		a.height = msg.Height
-		inner := msg.Height - 3 // tabs (3 rows with padding)
+		inner := msg.Height - 4 // tabs (3 rows) + help bar (1 row)
 		a.taskList = a.taskList.setSize(msg.Width, inner)
 		a.dayView = a.dayView.setSize(msg.Width, inner)
 
@@ -193,26 +193,23 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (a *App) View() string {
 	tabsView := a.renderTabs()
 
-	var content string
-	var helpText string
+	var content, helpRendered string
 	switch a.view {
 	case viewTaskList:
 		content = a.taskList.View()
+		helpRendered = a.taskList.HelpText()
 	case viewDay:
 		content = a.dayView.View()
+		helpRendered = a.dayView.HelpText()
 	case viewEntryForm, viewEditEntry:
 		content = a.entryForm.View()
-		helpText = "enter: confirm  tab: next  ↑↓: ±1m  shift+↑↓: ±5m  esc: cancel"
+		helpRendered = helpStyle.Render("enter: confirm  tab: next  ↑↓: ±1m  shift+↑↓: ±5m  esc: cancel")
 	case viewNewTask, viewEditTask:
 		content = a.taskForm.View()
-		helpText = "tab: next field  enter: save  esc: cancel"
+		helpRendered = helpStyle.Render("tab: next field  enter: save  esc: cancel")
 	}
 
-	if helpText == "" {
-		return lipgloss.JoinVertical(lipgloss.Left, tabsView, content)
-	}
-
-	helpBar := lipgloss.PlaceHorizontal(a.width, lipgloss.Center, helpStyle.Render(helpText))
+	helpBar := lipgloss.PlaceHorizontal(a.width, lipgloss.Center, helpRendered)
 	used := lipgloss.Height(tabsView) + lipgloss.Height(content) + 1
 	spacerH := a.height - used
 	if spacerH <= 0 {
