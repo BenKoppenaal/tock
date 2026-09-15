@@ -226,14 +226,6 @@ func (m EntryFormModel) View() string {
 		action = "Stop tracking"
 	}
 
-	box := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(colorHighlight).
-		Padding(1, 3).
-		Width(50)
-
-	labelStyle := lipgloss.NewStyle().Foreground(colorMuted)
-
 	lines := []string{
 		titleStyle.Render(action + ": " + m.task.Name),
 		"",
@@ -245,5 +237,5 @@ func (m EntryFormModel) View() string {
 	}
 
 	content := lipgloss.JoinVertical(lipgloss.Left, lines...)
-	return lipgloss.NewStyle().Padding(4, 8).Render(box.Render(content))
+	return formOuterStyle.Render(formBoxStyle.Render(content))
 }

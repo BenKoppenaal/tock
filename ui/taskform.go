@@ -122,13 +122,6 @@ func (m TaskFormModel) View() string {
 		title = "Edit task"
 	}
 
-	box := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(colorHighlight).
-		Padding(1, 3).
-		Width(50)
-
-	labelStyle := lipgloss.NewStyle().Foreground(colorMuted)
 	lines := []string{
 		titleStyle.Render(title),
 		"",
@@ -140,10 +133,10 @@ func (m TaskFormModel) View() string {
 	}
 
 	if m.err != "" {
-		lines = append(lines, "", lipgloss.NewStyle().Foreground(lipgloss.Color("#FF5555")).Render(m.err))
+		lines = append(lines, "", errorStyle.Render(m.err))
 	}
 
 	content := lipgloss.JoinVertical(lipgloss.Left, lines...)
 
-	return lipgloss.NewStyle().Padding(4, 8).Render(box.Render(content))
+	return formOuterStyle.Render(formBoxStyle.Render(content))
 }

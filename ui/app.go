@@ -241,31 +241,17 @@ func (a *App) View() string {
 func (a *App) renderTabs() string {
 	mk := func(label string, active bool) string {
 		if active {
-			return lipgloss.NewStyle().
-				Padding(0, 1).
-				Margin(1, 1, 1, 2).
-				Bold(true).
-				Background(colorHighlight).
-				Foreground(lipgloss.Color("#ffffff")).
-				Render(label)
+			return tabActiveStyle.Render(label)
 		}
-		return lipgloss.NewStyle().
-			Padding(0, 1).
-			Margin(1, 1, 1, 2).
-			Foreground(lipgloss.AdaptiveColor{Light: "#A49FA5", Dark: "#777777"}).
-			Render(label)
+		return tabInactiveStyle.Render(label)
 	}
+
 	tabs := lipgloss.JoinHorizontal(lipgloss.Top,
 		mk("[1] Tasks", a.view == viewTaskList || a.view == viewEntryForm || a.view == viewNewTask || a.view == viewEditTask),
 		mk("[2] Day", a.view == viewDay),
 	)
-	title := lipgloss.NewStyle().
-		Padding(0, 1).
-		Margin(1, 2, 1, 1).
-		Bold(true).
-		Background(colorHighlight).
-		Foreground(lipgloss.Color("#ffffff")).
-		Render("Tock")
+
+	title := tabTitleStyle.Render("Tock")
 
 	var activeInfo string
 	if a.activeEntry != nil {
@@ -275,11 +261,7 @@ func (a *App) renderTabs() string {
 		}
 
 		elapsed := a.activeEntry.Duration().Round(1e9)
-
-		activeInfo = lipgloss.NewStyle().
-			Margin(1, 1, 1, 0).
-			Foreground(colorActive).
-			Render("● " + name + " " + formatDuration(elapsed))
+		activeInfo = activeInfoStyle.Render("● " + name + " " + formatDuration(elapsed))
 	}
 
 	rightWidth := lipgloss.Width(activeInfo) + lipgloss.Width(title)
@@ -287,10 +269,8 @@ func (a *App) renderTabs() string {
 	if gap < 0 {
 		gap = 0
 	}
-
-	spacer := lipgloss.NewStyle().Width(gap).Render("")
-
-	return lipgloss.JoinHorizontal(lipgloss.Top, tabs, spacer, activeInfo, title)
+	
+	return lipgloss.JoinHorizontal(lipgloss.Top, tabs, lipgloss.NewStyle().Width(gap).Render(""), activeInfo, title)
 }
 
 func activeTaskID(e *model.Entry) int64 {

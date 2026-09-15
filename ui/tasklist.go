@@ -56,9 +56,9 @@ func (d taskDelegate) Render(w io.Writer, m list.Model, index int, item list.Ite
 		descFg = colorActive
 	case isArchived && isSelected:
 		nameFg = colorMuted
-		descFg = lipgloss.AdaptiveColor{Light: "#C0BBBC", Dark: "#555555"}
+		descFg = colorDim
 	case isArchived:
-		nameFg = lipgloss.AdaptiveColor{Light: "#C0BBBC", Dark: "#555555"}
+		nameFg = colorDim
 		descFg = lipgloss.AdaptiveColor{Light: "#D0CCCD", Dark: "#444444"}
 	case isSelected:
 		nameFg = colorHighlight
@@ -89,7 +89,7 @@ func (d taskDelegate) Render(w io.Writer, m list.Model, index int, item list.Ite
 	rightStyle := durStyle
 	if rightLabel == "" {
 		rightLabel = "n/a"
-		rightStyle = lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "#C0BBBC", Dark: "#555555"})
+		rightStyle = lipgloss.NewStyle().Foreground(colorDim)
 	}
 
 	nameAvail := avail - len(rightLabel) - 1
@@ -126,7 +126,7 @@ func (d taskDelegate) Render(w io.Writer, m list.Model, index int, item list.Ite
 		rightAnnotation = t.LastTracked.Format("2006-01-02")
 	}
 
-	dimStyle := lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "#C0BBBC", Dark: "#555555"})
+	dimStyle := lipgloss.NewStyle().Foreground(colorDim)
 
 	if rightAnnotation != "" {
 		noteAvail := descAvail - len(rightAnnotation) - 1
@@ -340,11 +340,9 @@ func (m TaskListModel) Update(msg tea.Msg) (TaskListModel, tea.Cmd) {
 func (m TaskListModel) HelpText() string {
 	switch m.confirm {
 	case confirmTaskDelete:
-		return lipgloss.NewStyle().Foreground(lipgloss.Color("#ff5555")).Bold(true).
-			Render(fmt.Sprintf("Delete \"%s\"? y to confirm  esc to cancel", m.confirmTask.Name))
+		return confirmStyle.Render(fmt.Sprintf("Delete \"%s\"? y to confirm  esc to cancel", m.confirmTask.Name))
 	case confirmTaskArchive:
-		return lipgloss.NewStyle().Foreground(lipgloss.Color("#ff5555")).Bold(true).
-			Render(fmt.Sprintf("Archive \"%s\"? y to confirm  esc to cancel", m.confirmTask.Name))
+		return confirmStyle.Render(fmt.Sprintf("Archive \"%s\"? y to confirm  esc to cancel", m.confirmTask.Name))
 	default:
 		if m.showArchived {
 			return helpStyle.Render("n: new  e: edit  d: delete/archive  u: unarchive  a: hide archived  / search  enter: start/stop  q: quit")

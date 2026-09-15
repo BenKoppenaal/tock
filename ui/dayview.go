@@ -379,7 +379,7 @@ func (m DayViewModel) renderTotals() string {
 
 func (m DayViewModel) HelpText() string {
 	if m.confirmDelete {
-		return lipgloss.NewStyle().Foreground(lipgloss.Color("#ff5555")).Bold(true).Render("Delete entry? y to confirm  esc to cancel")
+		return confirmStyle.Render("Delete entry? y to confirm  esc to cancel")
 	}
 
 	return helpStyle.Render("← → days  t: today  ↑↓ scroll  tab: select  e: edit  d: delete")
