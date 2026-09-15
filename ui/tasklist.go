@@ -34,8 +34,8 @@ type taskDelegate struct {
 	totals       map[int64]time.Duration
 }
 
-func (d taskDelegate) Height() int                                { return 2 }
-func (d taskDelegate) Spacing() int                               { return 1 }
+func (d taskDelegate) Height() int                               { return 2 }
+func (d taskDelegate) Spacing() int                              { return 1 }
 func (d taskDelegate) Update(msg tea.Msg, m *list.Model) tea.Cmd { return nil }
 
 func (d taskDelegate) Render(w io.Writer, m list.Model, index int, item list.Item) {
@@ -91,15 +91,18 @@ func (d taskDelegate) Render(w io.Writer, m list.Model, index int, item list.Ite
 		rightLabel = "n/a"
 		rightStyle = lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "#C0BBBC", Dark: "#555555"})
 	}
+
 	nameAvail := avail - len(rightLabel) - 1
 	name := t.Name
 	if len(name) > nameAvail {
 		name = name[:max(0, nameAvail-1)] + "…"
 	}
+
 	gap := nameAvail - len(name)
 	if gap < 0 {
 		gap = 0
 	}
+
 	titleContent = nameStyle.Render(name) + strings.Repeat(" ", gap) + " " + rightStyle.Render(rightLabel)
 
 	// Container provides left border or padding
@@ -122,23 +125,28 @@ func (d taskDelegate) Render(w io.Writer, m list.Model, index int, item list.Ite
 	} else if t.LastTracked != nil {
 		rightAnnotation = t.LastTracked.Format("2006-01-02")
 	}
+
 	dimStyle := lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "#C0BBBC", Dark: "#555555"})
+
 	if rightAnnotation != "" {
 		noteAvail := descAvail - len(rightAnnotation) - 1
 		note := t.Note
 		if len(note) > noteAvail {
 			note = note[:max(0, noteAvail-1)] + "…"
 		}
+
 		gap := noteAvail - len(note)
 		if gap < 0 {
 			gap = 0
 		}
+
 		noteStyled := lipgloss.NewStyle().Foreground(descFg).Render(note)
 		rightStyled := dimStyle.Render(rightAnnotation)
 		line2 = noteStyled + strings.Repeat(" ", gap) + " " + rightStyled
 	} else {
 		line2 = lipgloss.NewStyle().Foreground(descFg).Render(t.Note)
 	}
+
 	fmt.Fprintf(w, "%s", container.Render(titleContent+"\n"+line2)) //nolint:errcheck
 }
 
@@ -197,12 +205,15 @@ func (m TaskListModel) setSize(w, h int) TaskListModel {
 func (m TaskListModel) applyFilter() TaskListModel {
 	q := strings.ToLower(m.search.Value())
 	filtered := make([]model.Task, 0, len(m.allTasks))
+
 	for _, t := range m.allTasks {
 		if q == "" || strings.Contains(strings.ToLower(t.Name), q) {
 			filtered = append(filtered, t)
 		}
 	}
+
 	m.list.SetItems(toListItems(activeFirstTasks(filtered, m.activeTaskID)))
+
 	return m
 }
 
@@ -211,6 +222,7 @@ func activeFirstTasks(tasks []model.Task, activeID int64) []model.Task {
 		return tasks
 	}
 	out := make([]model.Task, 0, len(tasks))
+
 	for _, t := range tasks {
 		if t.ID == activeID {
 			out = append([]model.Task{t}, out...)
@@ -218,14 +230,17 @@ func activeFirstTasks(tasks []model.Task, activeID int64) []model.Task {
 			out = append(out, t)
 		}
 	}
+
 	return out
 }
 
 func toListItems(tasks []model.Task) []list.Item {
 	items := make([]list.Item, len(tasks))
+
 	for i, t := range tasks {
 		items[i] = taskItem{t}
 	}
+
 	return items
 }
 
@@ -342,10 +357,12 @@ func (m TaskListModel) View() string {
 	if m.search.Focused() {
 		l := m.list
 		l.SetSize(m.width, m.height-1)
+
 		return lipgloss.JoinVertical(lipgloss.Left,
 			lipgloss.NewStyle().PaddingLeft(2).Render(m.search.View()),
 			l.View(),
 		)
 	}
+
 	return m.list.View()
 }

@@ -13,14 +13,17 @@ type Entry struct {
 
 func (e Entry) Duration() time.Duration {
 	var d time.Duration
+
 	if e.EndTime == nil {
 		d = time.Since(e.StartTime)
 	} else {
 		d = e.EndTime.Sub(e.StartTime)
 	}
+
 	if d < 0 {
 		return 0
 	}
+
 	return d
 }
 

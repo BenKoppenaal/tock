@@ -17,15 +17,18 @@ func Open() (*DB, error) {
 	if err != nil {
 		dir = "."
 	}
+
 	dir = filepath.Join(dir, "tock")
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return nil, err
 	}
+
 	path := filepath.Join(dir, "tock.db")
 	conn, err := sql.Open("sqlite", path)
 	if err != nil {
 		return nil, err
 	}
+
 	d := &DB{conn: conn}
 	return d, d.migrate()
 }
@@ -48,8 +51,10 @@ func (d *DB) migrate() error {
 	if err != nil {
 		return err
 	}
+
 	// add archived column to existing DBs; ignore error if it already exists
 	_, _ = d.conn.Exec(`ALTER TABLE tasks ADD COLUMN archived INTEGER NOT NULL DEFAULT 0`)
+
 	return nil
 }
 

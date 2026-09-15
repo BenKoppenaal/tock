@@ -14,7 +14,9 @@ func (d *DB) StartEntry(taskID int64, startTime time.Time, comment string) (mode
 	if err != nil {
 		return model.Entry{}, err
 	}
+
 	id, _ := res.LastInsertId()
+
 	return model.Entry{ID: id, TaskID: taskID, StartTime: startTime, Comment: comment}, nil
 }
 
@@ -35,14 +37,18 @@ func (d *DB) ActiveEntry() (*model.Entry, error) {
 	`)
 	var e model.Entry
 	var startUnix int64
+
 	err := row.Scan(&e.ID, &e.TaskID, &e.TaskName, &startUnix, &e.Comment)
+
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
 	if err != nil {
 		return nil, err
 	}
+
 	e.StartTime = time.Unix(startUnix, 0)
+
 	return &e, nil
 }
 
@@ -68,21 +74,26 @@ func (d *DB) TotalTimeByTask() (map[int64]time.Duration, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	defer rows.Close()
 	totals := make(map[int64]time.Duration)
 	for rows.Next() {
 		var taskID, seconds int64
+
 		if err := rows.Scan(&taskID, &seconds); err != nil {
 			return nil, err
 		}
+
 		totals[taskID] = time.Duration(seconds) * time.Second
 	}
+
 	return totals, rows.Err()
 }
 
 func (d *DB) EntriesForDay(day time.Time) ([]model.Entry, error) {
 	start := time.Date(day.Year(), day.Month(), day.Day(), 0, 0, 0, 0, day.Location())
 	end := start.Add(24 * time.Hour)
+
 	rows, err := d.conn.Query(`
 		SELECT e.id, e.task_id, t.name, e.start_time, e.end_time, e.comment
 		FROM entries e JOIN tasks t ON t.id = e.task_id
@@ -92,21 +103,27 @@ func (d *DB) EntriesForDay(day time.Time) ([]model.Entry, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	defer rows.Close()
 	var entries []model.Entry
 	for rows.Next() {
 		var e model.Entry
 		var startUnix int64
 		var endUnix sql.NullInt64
+
 		if err := rows.Scan(&e.ID, &e.TaskID, &e.TaskName, &startUnix, &endUnix, &e.Comment); err != nil {
 			return nil, err
 		}
+
 		e.StartTime = time.Unix(startUnix, 0)
+
 		if endUnix.Valid {
 			t := time.Unix(endUnix.Int64, 0)
 			e.EndTime = &t
 		}
+
 		entries = append(entries, e)
 	}
+
 	return entries, rows.Err()
 }

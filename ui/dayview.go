@@ -60,19 +60,22 @@ func (m DayViewModel) setSize(w, h int) DayViewModel {
 }
 
 func (m DayViewModel) scrollForNow() int {
-	row := m.timeToRow(time.Now())
 	visibleRows := m.height - 4
 	if visibleRows < 1 {
 		visibleRows = 10
 	}
-	totalRows := (dayEndHour - dayStartHour) * rowsPerHour
+
+	row := m.timeToRow(time.Now())
 	offset := row - visibleRows/3
 	if offset < 0 {
 		offset = 0
 	}
+
+	totalRows := (dayEndHour - dayStartHour) * rowsPerHour
 	if offset > totalRows-visibleRows {
 		offset = totalRows - visibleRows
 	}
+
 	return offset
 }
 
@@ -80,16 +83,19 @@ func (m DayViewModel) scrollToSelected() DayViewModel {
 	if m.selectedIdx < 0 || m.selectedIdx >= len(m.entries) {
 		return m
 	}
-	entryRow := m.timeToRow(m.entries[m.selectedIdx].StartTime)
+
 	visibleRows := m.height - 4
 	if visibleRows < 1 {
 		visibleRows = 1
 	}
+
+	entryRow := m.timeToRow(m.entries[m.selectedIdx].StartTime)
 	if entryRow < m.scrollOffset {
 		m.scrollOffset = entryRow
 	} else if entryRow >= m.scrollOffset+visibleRows {
 		m.scrollOffset = entryRow - visibleRows + 1
 	}
+
 	return m
 }
 
@@ -121,9 +127,11 @@ func (m DayViewModel) Update(msg tea.Msg) (DayViewModel, tea.Cmd) {
 		case "down", "j":
 			totalRows := (dayEndHour - dayStartHour) * rowsPerHour
 			visibleRows := m.height - 4
+
 			if visibleRows < 1 {
 				visibleRows = 1
 			}
+
 			if m.scrollOffset < totalRows-visibleRows {
 				m.scrollOffset++
 			}
@@ -134,6 +142,7 @@ func (m DayViewModel) Update(msg tea.Msg) (DayViewModel, tea.Cmd) {
 				} else {
 					m.selectedIdx = (m.selectedIdx + 1) % len(m.entries)
 				}
+
 				m = m.scrollToSelected()
 			}
 		case "shift+tab":
@@ -143,6 +152,7 @@ func (m DayViewModel) Update(msg tea.Msg) (DayViewModel, tea.Cmd) {
 				} else {
 					m.selectedIdx = (m.selectedIdx - 1 + len(m.entries)) % len(m.entries)
 				}
+
 				m = m.scrollToSelected()
 			}
 		case "e":
@@ -160,6 +170,7 @@ func (m DayViewModel) Update(msg tea.Msg) (DayViewModel, tea.Cmd) {
 				m.db.DeleteEntry(entry.ID) //nolint:errcheck
 				m.confirmDelete = false
 				m.selectedIdx = -1
+
 				return m, tea.Batch(m.load(), func() tea.Msg { return entryDeletedMsg{} })
 			}
 		case "esc":
@@ -194,30 +205,37 @@ func (m DayViewModel) View() string {
 	for i, e := range m.entries {
 		sr := m.timeToRow(e.StartTime)
 		er := m.timeToEndRow(m.entryEnd(e))
+
 		if er <= sr {
 			er = sr + 1
 		}
+
 		if sr < 0 {
 			sr = 0
 		}
+
 		if er > totalRows {
 			er = totalRows
 		}
+
 		spans = append(spans, span{entry: e, colorIdx: i, startRow: sr, endRow: er})
 	}
 
 	// Assign columns: greedy lowest-free-column among overlapping spans
 	for i := range spans {
 		used := map[int]bool{}
+
 		for j := 0; j < i; j++ {
 			if spans[j].startRow < spans[i].endRow && spans[i].startRow < spans[j].endRow {
 				used[spans[j].col] = true
 			}
 		}
+
 		col := 0
 		for used[col] {
 			col++
 		}
+
 		spans[i].col = col
 	}
 
@@ -265,11 +283,13 @@ func (m DayViewModel) View() string {
 			numCols := len(active)
 			baseW := blockW / numCols
 			var parts []string
+
 			for ci, s := range active {
 				w := baseW
 				if ci == numCols-1 {
 					w = blockW - baseW*(numCols-1)
 				}
+
 				isSelected := s.colorIdx == m.selectedIdx
 				color := blockColors[s.colorIdx%len(blockColors)]
 				style := lipgloss.NewStyle().
@@ -282,16 +302,20 @@ func (m DayViewModel) View() string {
 				if row == s.startRow {
 					dur := s.entry.Duration().Round(time.Second)
 					prefix := " "
+
 					if isSelected {
 						prefix = "▸"
 					}
+
 					label := fmt.Sprintf("%s%s  %s", prefix, s.entry.TaskName, formatDuration(dur))
 					if len(label) > w {
 						label = prefix + s.entry.TaskName
+
 						if len(label) > w {
 							label = label[:w]
 						}
 					}
+
 					content = label
 				}
 				parts = append(parts, style.Render(content))
@@ -306,6 +330,7 @@ func (m DayViewModel) View() string {
 	if visibleRows < 1 {
 		visibleRows = 10
 	}
+
 	start := m.scrollOffset
 	end := start + visibleRows
 	if end > totalRows {
@@ -318,6 +343,7 @@ func (m DayViewModel) View() string {
 	if gap < 0 {
 		gap = 0
 	}
+
 	header := lipgloss.JoinHorizontal(lipgloss.Top, dateStr, lipgloss.NewStyle().Width(gap).Render(""), totalsStr)
 	timeline := lipgloss.NewStyle().PaddingLeft(marginLeft - 1).Render(strings.Join(rows[start:end], "\n"))
 
@@ -334,15 +360,19 @@ func (m DayViewModel) renderTotals() string {
 	}
 	var total time.Duration
 	seen := make(map[int64]struct{})
+
 	for _, e := range m.entries {
 		total += e.Duration()
 		seen[e.TaskID] = struct{}{}
 	}
+
 	taskCount := len(seen)
 	taskLabel := "tasks"
+
 	if taskCount == 1 {
 		taskLabel = "task"
 	}
+
 	totals := fmt.Sprintf("%s  ·  %d %s", formatDuration(total.Round(time.Second)), taskCount, taskLabel)
 	return lipgloss.NewStyle().Foreground(colorMuted).PaddingRight(1).Render(totals)
 }
@@ -351,6 +381,7 @@ func (m DayViewModel) HelpText() string {
 	if m.confirmDelete {
 		return lipgloss.NewStyle().Foreground(lipgloss.Color("#ff5555")).Bold(true).Render("Delete entry? y to confirm  esc to cancel")
 	}
+
 	return helpStyle.Render("← → days  t: today  ↑↓ scroll  tab: select  e: edit  d: delete")
 }
 

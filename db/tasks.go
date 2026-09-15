@@ -11,7 +11,9 @@ func (d *DB) CreateTask(name, note string) (model.Task, error) {
 	if err != nil {
 		return model.Task{}, err
 	}
+
 	id, _ := res.LastInsertId()
+
 	return model.Task{ID: id, Name: name, Note: note}, nil
 }
 
@@ -33,20 +35,25 @@ func (d *DB) ListTasks(search string, includeArchived bool) ([]model.Task, error
 	if err != nil {
 		return nil, err
 	}
+
 	defer rows.Close()
 	var tasks []model.Task
 	for rows.Next() {
 		var t model.Task
 		var lastTrackedUnix sql.NullInt64
+
 		if err := rows.Scan(&t.ID, &t.Name, &t.Note, &t.Archived, &lastTrackedUnix); err != nil {
 			return nil, err
 		}
+
 		if lastTrackedUnix.Valid {
 			ts := time.Unix(lastTrackedUnix.Int64, 0)
 			t.LastTracked = &ts
 		}
+
 		tasks = append(tasks, t)
 	}
+
 	return tasks, rows.Err()
 }
 

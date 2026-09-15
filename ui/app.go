@@ -44,14 +44,17 @@ func NewApp(database *db.DB) (*App, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	tasks, err := database.ListTasks("", false)
 	if err != nil {
 		return nil, err
 	}
+
 	totals, err := database.TotalTimeByTask()
 	if err != nil {
 		return nil, err
 	}
+
 	return &App{
 		db:          database,
 		view:        viewTaskList,
@@ -135,10 +138,12 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case reloadTasksMsg:
 		a.refreshTaskList()
+
 		if msg.search != "" {
 			a.taskList.search.SetValue(msg.search)
 			a.taskList = a.taskList.applyFilter()
 		}
+
 		a.taskList.list.Select(msg.index)
 		return a, nil
 
@@ -223,10 +228,13 @@ func (a *App) View() string {
 	helpBar := lipgloss.PlaceHorizontal(a.width, lipgloss.Center, helpRendered)
 	used := lipgloss.Height(tabsView) + lipgloss.Height(content) + 1
 	spacerH := a.height - used
+
 	if spacerH <= 0 {
 		return lipgloss.JoinVertical(lipgloss.Left, tabsView, content, helpBar)
 	}
+
 	spacer := strings.Repeat("\n", spacerH-1)
+
 	return lipgloss.JoinVertical(lipgloss.Left, tabsView, content, spacer, helpBar)
 }
 
@@ -265,7 +273,9 @@ func (a *App) renderTabs() string {
 		if len(name) > 20 {
 			name = name[:19] + "…"
 		}
+
 		elapsed := a.activeEntry.Duration().Round(1e9)
+
 		activeInfo = lipgloss.NewStyle().
 			Margin(1, 1, 1, 0).
 			Foreground(colorActive).
@@ -277,7 +287,9 @@ func (a *App) renderTabs() string {
 	if gap < 0 {
 		gap = 0
 	}
+
 	spacer := lipgloss.NewStyle().Width(gap).Render("")
+
 	return lipgloss.JoinHorizontal(lipgloss.Top, tabs, spacer, activeInfo, title)
 }
 

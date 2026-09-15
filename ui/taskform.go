@@ -90,10 +90,12 @@ func (m TaskFormModel) Update(msg tea.Msg) (TaskFormModel, tea.Cmd) {
 			}
 			if m.taskID == 0 {
 				task, err := m.db.CreateTask(name, m.note.Value())
+
 				if err != nil {
 					m.err = err.Error()
 					return m, nil
 				}
+
 				return m, func() tea.Msg { return taskCreatedMsg{task: task} }
 			}
 			if err := m.db.UpdateTask(m.taskID, name, m.note.Value()); err != nil {
@@ -136,9 +138,11 @@ func (m TaskFormModel) View() string {
 		labelStyle.Render("Note"),
 		m.note.View(),
 	}
+
 	if m.err != "" {
 		lines = append(lines, "", lipgloss.NewStyle().Foreground(lipgloss.Color("#FF5555")).Render(m.err))
 	}
+
 	content := lipgloss.JoinVertical(lipgloss.Left, lines...)
 
 	return lipgloss.NewStyle().Padding(4, 8).Render(box.Render(content))

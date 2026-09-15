@@ -69,6 +69,7 @@ func NewEntryFormModel(database *db.DB, task model.Task, active *model.Entry) En
 			newCommentField(""),
 		}
 	}
+
 	fields[0].input.Focus()
 
 	startDefault := now.Format(timeInputLayout)
@@ -90,12 +91,15 @@ func NewEntryEditFormModel(database *db.DB, entry model.Entry) EntryFormModel {
 	if entry.EndTime != nil {
 		endVal = entry.EndTime.Format(timeInputLayout)
 	}
+
 	fields := []formField{
 		newTimeField("Start time", entry.StartTime.Format(timeInputLayout)),
 		newTimeField("End time", endVal),
 		newCommentField(entry.Comment),
 	}
+
 	fields[0].input.Focus()
+
 	return EntryFormModel{
 		db:          database,
 		task:        model.Task{ID: entry.TaskID, Name: entry.TaskName},
@@ -116,10 +120,12 @@ func (m EntryFormModel) parseTime(s string, ref time.Time) time.Time {
 	if err != nil {
 		return ref
 	}
+
 	sec := 0
 	if t.Hour() == ref.Hour() && t.Minute() == ref.Minute() {
 		sec = ref.Second()
 	}
+
 	return time.Date(ref.Year(), ref.Month(), ref.Day(), t.Hour(), t.Minute(), sec, 0, ref.Location())
 }
 
@@ -133,24 +139,30 @@ func (m EntryFormModel) Update(msg tea.Msg) (EntryFormModel, tea.Cmd) {
 				if msg.String() == "shift+up" || msg.String() == "shift+down" {
 					delta = 5 * time.Minute
 				}
+
 				if msg.String() == "down" || msg.String() == "shift+down" {
 					delta = -delta
 				}
+
 				ref := time.Now()
 				t := m.parseTime(m.fields[m.focused].input.Value(), ref)
 				t = t.Add(delta)
 				m.fields[m.focused].input.SetValue(t.Format(timeInputLayout))
+
 				return m, nil
 			}
 
 		case "tab", "shift+tab":
 			m.fields[m.focused].input.Blur()
+
 			if msg.String() == "tab" {
 				m.focused = (m.focused + 1) % len(m.fields)
 			} else {
 				m.focused = (m.focused - 1 + len(m.fields)) % len(m.fields)
 			}
+
 			cmd := m.fields[m.focused].input.Focus()
+
 			return m, cmd
 
 		case "enter":
@@ -160,30 +172,39 @@ func (m EntryFormModel) Update(msg tea.Msg) (EntryFormModel, tea.Cmd) {
 				if m.activeEntry.EndTime != nil {
 					ref = *m.activeEntry.EndTime
 				}
+
 				endTime := m.parseTime(m.fields[1].input.Value(), ref)
 				comment := m.fields[2].input.Value()
 				_ = m.db.UpdateEntry(m.activeEntry.ID, startTime, endTime, comment)
+
 				return m, func() tea.Msg { return entryEditedMsg{} }
 			}
+
 			if m.stopping {
 				startTime := m.parseTime(m.fields[0].input.Value(), m.activeEntry.StartTime)
 				endTime := m.parseTime(m.fields[1].input.Value(), m.stopTime)
 				comment := m.fields[2].input.Value()
 				_ = m.db.StopEntry(m.activeEntry.ID, startTime, endTime, comment)
+
 				return m, func() tea.Msg { return entryStoppedMsg{} }
 			}
+
 			var startTime time.Time
 			if m.fields[0].input.Value() == m.startDefault {
 				startTime = m.startNow
 			} else {
 				startTime = m.parseTime(m.fields[0].input.Value(), m.startNow)
 			}
+
 			comment := m.fields[1].input.Value()
+
 			if m.activeEntry != nil {
 				_ = m.db.StopEntry(m.activeEntry.ID, m.activeEntry.StartTime, time.Now(), "")
 			}
+
 			entry, _ := m.db.StartEntry(m.task.ID, startTime, comment)
 			entry.TaskName = m.task.Name
+
 			return m, func() tea.Msg { return entrySavedMsg{entry: &entry} }
 		}
 	}
