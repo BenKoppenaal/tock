@@ -312,7 +312,13 @@ func (m DayViewModel) View() string {
 		end = totalRows
 	}
 
-	header := lipgloss.NewStyle().PaddingLeft(1).Render(titleStyle.Render(m.day.Format("Monday, January 2 2006")))
+	dateStr := lipgloss.NewStyle().PaddingLeft(1).Render(titleStyle.Render(m.day.Format("Monday, January 2 2006")))
+	totalsStr := m.renderTotals()
+	gap := m.width - lipgloss.Width(dateStr) - lipgloss.Width(totalsStr)
+	if gap < 0 {
+		gap = 0
+	}
+	header := lipgloss.JoinHorizontal(lipgloss.Top, dateStr, lipgloss.NewStyle().Width(gap).Render(""), totalsStr)
 	timeline := lipgloss.NewStyle().PaddingLeft(marginLeft - 1).Render(strings.Join(rows[start:end], "\n"))
 
 	return lipgloss.JoinVertical(lipgloss.Left,
@@ -320,6 +326,25 @@ func (m DayViewModel) View() string {
 		"",
 		timeline,
 	)
+}
+
+func (m DayViewModel) renderTotals() string {
+	if len(m.entries) == 0 {
+		return ""
+	}
+	var total time.Duration
+	seen := make(map[int64]struct{})
+	for _, e := range m.entries {
+		total += e.Duration()
+		seen[e.TaskID] = struct{}{}
+	}
+	taskCount := len(seen)
+	taskLabel := "tasks"
+	if taskCount == 1 {
+		taskLabel = "task"
+	}
+	totals := fmt.Sprintf("%s  ·  %d %s", formatDuration(total.Round(time.Second)), taskCount, taskLabel)
+	return lipgloss.NewStyle().Foreground(colorMuted).PaddingRight(1).Render(totals)
 }
 
 func (m DayViewModel) HelpText() string {
