@@ -23,6 +23,11 @@ func (t taskItem) FilterValue() string { return t.Name }
 type startEntryMsg struct{ task model.Task }
 type editTaskMsg struct{ task model.Task }
 type taskDeletedMsg struct{}
+type taskUnarchivedMsg struct{}
+type reloadTasksMsg struct {
+	index  int
+	search string
+}
 
 type taskDelegate struct {
 	activeTaskID int64
@@ -41,6 +46,7 @@ func (d taskDelegate) Render(w io.Writer, m list.Model, index int, item list.Ite
 
 	isSelected := index == m.Index()
 	isActive := d.activeTaskID != 0 && t.ID == d.activeTaskID
+	isArchived := t.Archived
 
 	// Determine per-state colors
 	var nameFg, descFg lipgloss.TerminalColor
@@ -48,6 +54,12 @@ func (d taskDelegate) Render(w io.Writer, m list.Model, index int, item list.Ite
 	case isActive:
 		nameFg = colorActive
 		descFg = colorActive
+	case isArchived && isSelected:
+		nameFg = colorMuted
+		descFg = lipgloss.AdaptiveColor{Light: "#C0BBBC", Dark: "#555555"}
+	case isArchived:
+		nameFg = lipgloss.AdaptiveColor{Light: "#C0BBBC", Dark: "#555555"}
+		descFg = lipgloss.AdaptiveColor{Light: "#D0CCCD", Dark: "#444444"}
 	case isSelected:
 		nameFg = colorHighlight
 		descFg = lipgloss.AdaptiveColor{Light: "#A49FA5", Dark: "#777777"}
@@ -101,15 +113,18 @@ func (d taskDelegate) Render(w io.Writer, m list.Model, index int, item list.Ite
 		container = lipgloss.NewStyle().Padding(0, 0, 0, 2)
 	}
 
-	// Build note line: note left, last tracked date right-aligned
+	// Build note line: note left, right label (archived marker or last-tracked date)
 	var line2 string
-	dateStr := ""
-	if t.LastTracked != nil {
-		dateStr = t.LastTracked.Format("2006-01-02")
-	}
 	descAvail := avail
-	if dateStr != "" {
-		noteAvail := descAvail - len(dateStr) - 1
+	rightAnnotation := ""
+	if isArchived {
+		rightAnnotation = "archived"
+	} else if t.LastTracked != nil {
+		rightAnnotation = t.LastTracked.Format("2006-01-02")
+	}
+	dimStyle := lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "#C0BBBC", Dark: "#555555"})
+	if rightAnnotation != "" {
+		noteAvail := descAvail - len(rightAnnotation) - 1
 		note := t.Note
 		if len(note) > noteAvail {
 			note = note[:max(0, noteAvail-1)] + "…"
@@ -119,8 +134,8 @@ func (d taskDelegate) Render(w io.Writer, m list.Model, index int, item list.Ite
 			gap = 0
 		}
 		noteStyled := lipgloss.NewStyle().Foreground(descFg).Render(note)
-		dateStyled := lipgloss.NewStyle().Foreground(colorMuted).Render(dateStr)
-		line2 = noteStyled + strings.Repeat(" ", gap) + " " + dateStyled
+		rightStyled := dimStyle.Render(rightAnnotation)
+		line2 = noteStyled + strings.Repeat(" ", gap) + " " + rightStyled
 	} else {
 		line2 = lipgloss.NewStyle().Foreground(descFg).Render(t.Note)
 	}
@@ -151,6 +166,7 @@ type TaskListModel struct {
 	totals       map[int64]time.Duration
 	confirm      taskConfirm
 	confirmTask  model.Task
+	showArchived bool
 	width        int
 	height       int
 }
@@ -234,16 +250,34 @@ func (m TaskListModel) Update(msg tea.Msg) (TaskListModel, tea.Cmd) {
 				m = m.applyFilter()
 				return m, nil
 			}
+		case "a":
+			if !m.search.Focused() && m.confirm == confirmNone {
+				m.showArchived = !m.showArchived
+				idx := m.list.Index()
+				q := m.search.Value()
+				return m, func() tea.Msg { return reloadTasksMsg{index: idx, search: q} }
+			}
+		case "u":
+			if !m.search.Focused() && m.confirm == confirmNone {
+				if item, ok := m.list.SelectedItem().(taskItem); ok {
+					if item.Archived {
+						m.db.UnarchiveTask(item.ID) //nolint:errcheck
+						return m, func() tea.Msg { return taskUnarchivedMsg{} }
+					}
+				}
+			}
 		case "d":
 			if !m.search.Focused() && m.confirm == confirmNone {
 				if item, ok := m.list.SelectedItem().(taskItem); ok {
-					m.confirmTask = item.Task
-					if m.totals[item.ID] > 0 {
-						m.confirm = confirmTaskArchive
-					} else {
-						m.confirm = confirmTaskDelete
+					if !item.Archived {
+						m.confirmTask = item.Task
+						if m.totals[item.ID] > 0 {
+							m.confirm = confirmTaskArchive
+						} else {
+							m.confirm = confirmTaskDelete
+						}
+						return m, nil
 					}
-					return m, nil
 				}
 			}
 		case "y":
@@ -297,7 +331,10 @@ func (m TaskListModel) HelpText() string {
 		return lipgloss.NewStyle().Foreground(lipgloss.Color("#ff5555")).Bold(true).
 			Render(fmt.Sprintf("Archive \"%s\"? y to confirm  esc to cancel", m.confirmTask.Name))
 	default:
-		return helpStyle.Render("n: new  e: edit  d: delete/archive  / search  enter: start/stop  q: quit")
+		if m.showArchived {
+			return helpStyle.Render("n: new  e: edit  d: delete/archive  u: unarchive  a: hide archived  / search  enter: start/stop  q: quit")
+		}
+		return helpStyle.Render("n: new  e: edit  d: delete/archive  a: show archived  / search  enter: start/stop  q: quit")
 	}
 }
 

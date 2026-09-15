@@ -44,7 +44,7 @@ func NewApp(database *db.DB) (*App, error) {
 	if err != nil {
 		return nil, err
 	}
-	tasks, err := database.ListTasks("")
+	tasks, err := database.ListTasks("", false)
 	if err != nil {
 		return nil, err
 	}
@@ -63,9 +63,11 @@ func NewApp(database *db.DB) (*App, error) {
 
 // refreshTaskList reloads tasks and totals from the DB and rebuilds the task list model.
 func (a *App) refreshTaskList() {
-	tasks, _ := a.db.ListTasks("")
+	showArchived := a.taskList.showArchived
+	tasks, _ := a.db.ListTasks("", showArchived)
 	totals, _ := a.db.TotalTimeByTask()
 	a.taskList = NewTaskListModel(a.db, tasks, activeTaskID(a.activeEntry), totals)
+	a.taskList.showArchived = showArchived
 	a.taskList = a.taskList.setSize(a.width, a.height-4)
 }
 
@@ -127,8 +129,17 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.view = viewEditTask
 		return a, a.taskForm.Init()
 
-	case taskDeletedMsg:
+	case taskDeletedMsg, taskUnarchivedMsg:
 		a.refreshTaskList()
+		return a, nil
+
+	case reloadTasksMsg:
+		a.refreshTaskList()
+		if msg.search != "" {
+			a.taskList.search.SetValue(msg.search)
+			a.taskList = a.taskList.applyFilter()
+		}
+		a.taskList.list.Select(msg.index)
 		return a, nil
 
 	case taskCreatedMsg:

@@ -15,19 +15,21 @@ func (d *DB) CreateTask(name, note string) (model.Task, error) {
 	return model.Task{ID: id, Name: name, Note: note}, nil
 }
 
-func (d *DB) ListTasks(search string) ([]model.Task, error) {
-	rows, err := d.conn.Query(`
-		SELECT t.id, t.name, t.note, e.last_tracked
+func (d *DB) ListTasks(search string, includeArchived bool) ([]model.Task, error) {
+	query := `
+		SELECT t.id, t.name, t.note, t.archived, e.last_tracked
 		FROM tasks t
 		LEFT JOIN (
 			SELECT task_id, MAX(start_time) AS last_tracked
 			FROM entries
 			GROUP BY task_id
 		) e ON e.task_id = t.id
-		WHERE t.name LIKE ? AND t.archived = 0
-		ORDER BY COALESCE(e.last_tracked, 0) DESC, t.name`,
-		"%"+search+"%",
-	)
+		WHERE t.name LIKE ?`
+	if !includeArchived {
+		query += ` AND t.archived = 0`
+	}
+	query += ` ORDER BY t.archived ASC, COALESCE(e.last_tracked, 0) DESC, t.name`
+	rows, err := d.conn.Query(query, "%"+search+"%")
 	if err != nil {
 		return nil, err
 	}
@@ -36,7 +38,7 @@ func (d *DB) ListTasks(search string) ([]model.Task, error) {
 	for rows.Next() {
 		var t model.Task
 		var lastTrackedUnix sql.NullInt64
-		if err := rows.Scan(&t.ID, &t.Name, &t.Note, &lastTrackedUnix); err != nil {
+		if err := rows.Scan(&t.ID, &t.Name, &t.Note, &t.Archived, &lastTrackedUnix); err != nil {
 			return nil, err
 		}
 		if lastTrackedUnix.Valid {
@@ -55,6 +57,11 @@ func (d *DB) UpdateTask(id int64, name, note string) error {
 
 func (d *DB) ArchiveTask(id int64) error {
 	_, err := d.conn.Exec(`UPDATE tasks SET archived = 1 WHERE id = ?`, id)
+	return err
+}
+
+func (d *DB) UnarchiveTask(id int64) error {
+	_, err := d.conn.Exec(`UPDATE tasks SET archived = 0 WHERE id = ?`, id)
 	return err
 }
 
