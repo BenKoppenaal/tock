@@ -126,19 +126,20 @@ func (m TaskFormModel) View() string {
 		Padding(1, 3).
 		Width(50)
 
-	errLine := ""
-	if m.err != "" {
-		errLine = lipgloss.NewStyle().Foreground(lipgloss.Color("#FF5555")).Render(m.err) + "\n"
-	}
-
-	content := lipgloss.JoinVertical(lipgloss.Left,
+	labelStyle := lipgloss.NewStyle().Foreground(colorMuted)
+	lines := []string{
 		titleStyle.Render(title),
 		"",
+		labelStyle.Render("Name"),
 		m.name.View(),
-		m.note.View(),
 		"",
-		errLine+helpStyle.Render("tab: next field  enter: save  esc: cancel"),
-	)
+		labelStyle.Render("Note"),
+		m.note.View(),
+	}
+	if m.err != "" {
+		lines = append(lines, "", lipgloss.NewStyle().Foreground(lipgloss.Color("#FF5555")).Render(m.err))
+	}
+	content := lipgloss.JoinVertical(lipgloss.Left, lines...)
 
 	return lipgloss.NewStyle().Padding(4, 8).Render(box.Render(content))
 }

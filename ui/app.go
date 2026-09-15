@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"strings"
 	"time"
 	"tock/db"
 	"tock/model"
@@ -190,7 +191,10 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (a *App) View() string {
+	tabsView := a.renderTabs()
+
 	var content string
+	var helpText string
 	switch a.view {
 	case viewTaskList:
 		content = a.taskList.View()
@@ -198,13 +202,24 @@ func (a *App) View() string {
 		content = a.dayView.View()
 	case viewEntryForm, viewEditEntry:
 		content = a.entryForm.View()
+		helpText = "enter: confirm  tab: next  ↑↓: ±1m  shift+↑↓: ±5m  esc: cancel"
 	case viewNewTask, viewEditTask:
 		content = a.taskForm.View()
+		helpText = "tab: next field  enter: save  esc: cancel"
 	}
-	return lipgloss.JoinVertical(lipgloss.Left,
-		a.renderTabs(),
-		content,
-	)
+
+	if helpText == "" {
+		return lipgloss.JoinVertical(lipgloss.Left, tabsView, content)
+	}
+
+	helpBar := lipgloss.PlaceHorizontal(a.width, lipgloss.Center, helpStyle.Render(helpText))
+	used := lipgloss.Height(tabsView) + lipgloss.Height(content) + 1
+	spacerH := a.height - used
+	if spacerH <= 0 {
+		return lipgloss.JoinVertical(lipgloss.Left, tabsView, content, helpBar)
+	}
+	spacer := strings.Repeat("\n", spacerH-1)
+	return lipgloss.JoinVertical(lipgloss.Left, tabsView, content, spacer, helpBar)
 }
 
 func (a *App) renderTabs() string {

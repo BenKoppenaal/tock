@@ -222,7 +222,6 @@ func (m EntryFormModel) View() string {
 		lines = append(lines, f.input.View())
 		lines = append(lines, "")
 	}
-	lines = append(lines, helpStyle.Render("enter: confirm  tab: next  ↑↓: ±1m  shift+↑↓: ±5m  esc: cancel"))
 
 	content := lipgloss.JoinVertical(lipgloss.Left, lines...)
 	return lipgloss.NewStyle().Padding(4, 8).Render(box.Render(content))
