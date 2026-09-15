@@ -326,7 +326,7 @@ func (m DayViewModel) HelpText() string {
 	if m.confirmDelete {
 		return lipgloss.NewStyle().Foreground(lipgloss.Color("#ff5555")).Bold(true).Render("Delete entry? y to confirm  esc to cancel")
 	}
-	return helpStyle.Render("← → days  t: today  ↑↓ scroll  tab: select  e: edit  d: delete  1: tasks")
+	return helpStyle.Render("← → days  t: today  ↑↓ scroll  tab: select  e: edit  d: delete")
 }
 
 func (m DayViewModel) timeToRow(t time.Time) int {
