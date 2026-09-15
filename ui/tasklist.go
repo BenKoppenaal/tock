@@ -244,7 +244,7 @@ func (m TaskListModel) Update(msg tea.Msg) (TaskListModel, tea.Cmd) {
 				m.confirm = confirmNone
 				return m, nil
 			}
-			if m.search.Focused() {
+			if m.search.Focused() || m.search.Value() != "" {
 				m.search.Blur()
 				m.search.SetValue("")
 				m = m.applyFilter()
