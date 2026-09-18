@@ -92,21 +92,25 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "ctrl+c":
 			return a, tea.Quit
 		case "q":
-			if a.view == viewTaskList || a.view == viewDay {
+			searching := a.view == viewTaskList && a.taskList.search.Focused()
+			if !searching && (a.view == viewTaskList || a.view == viewDay) {
 				return a, tea.Quit
 			}
 		case "1":
-			if a.view == viewTaskList || a.view == viewDay {
+			searching := a.view == viewTaskList && a.taskList.search.Focused()
+			if !searching && (a.view == viewTaskList || a.view == viewDay) {
 				a.view = viewTaskList
 				return a, nil
 			}
 		case "2":
-			if a.view == viewTaskList || a.view == viewDay {
+			searching := a.view == viewTaskList && a.taskList.search.Focused()
+			if !searching && (a.view == viewTaskList || a.view == viewDay) {
 				a.view = viewDay
 				return a, a.dayView.load()
 			}
 		case "n":
-			if a.view == viewTaskList {
+			searching := a.view == viewTaskList && a.taskList.search.Focused()
+			if !searching && a.view == viewTaskList {
 				a.taskForm = NewTaskFormModel(a.db)
 				a.view = viewNewTask
 				return a, a.taskForm.Init()
