@@ -14,7 +14,7 @@ type entrySavedMsg struct{ entry *model.Entry }
 type entryStoppedMsg struct{}
 type entryEditedMsg struct{}
 
-const timeInputLayout = "15:04"
+const timeInputLayout = "2006-01-02 15:04"
 
 type formField struct {
 	label  string
@@ -37,9 +37,9 @@ type EntryFormModel struct {
 
 func newTimeField(label, value string) formField {
 	ti := textinput.New()
-	ti.Placeholder = "HH:MM"
-	ti.CharLimit = 5
-	ti.Width = 10
+	ti.Placeholder = "YYYY-MM-DD HH:MM"
+	ti.CharLimit = 16
+	ti.Width = 18
 	ti.SetValue(value)
 	return formField{label: label, input: ti, isTime: true}
 }
@@ -126,7 +126,7 @@ func (m EntryFormModel) parseTime(s string, ref time.Time) time.Time {
 		sec = ref.Second()
 	}
 
-	return time.Date(ref.Year(), ref.Month(), ref.Day(), t.Hour(), t.Minute(), sec, 0, ref.Location())
+	return time.Date(t.Year(), t.Month(), t.Day(), t.Hour(), t.Minute(), sec, 0, ref.Location())
 }
 
 func (m EntryFormModel) Update(msg tea.Msg) (EntryFormModel, tea.Cmd) {
