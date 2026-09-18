@@ -97,9 +97,9 @@ func (d *DB) EntriesForDay(day time.Time) ([]model.Entry, error) {
 	rows, err := d.conn.Query(`
 		SELECT e.id, e.task_id, t.name, e.start_time, e.end_time, e.comment
 		FROM entries e JOIN tasks t ON t.id = e.task_id
-		WHERE e.start_time >= ? AND e.start_time < ?
+		WHERE e.start_time < ? AND (e.end_time IS NULL OR e.end_time > ?)
 		ORDER BY e.start_time
-	`, start.Unix(), end.Unix())
+	`, end.Unix(), start.Unix())
 	if err != nil {
 		return nil, err
 	}

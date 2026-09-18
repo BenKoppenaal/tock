@@ -201,10 +201,25 @@ func (m DayViewModel) View() string {
 		col      int
 	}
 
+	dayStart := time.Date(m.day.Year(), m.day.Month(), m.day.Day(), 0, 0, 0, 0, m.day.Location())
+	dayEnd := dayStart.Add(24 * time.Hour)
+
 	spans := make([]span, 0, len(m.entries))
 	for i, e := range m.entries {
-		sr := m.timeToRow(e.StartTime)
-		er := m.timeToEndRow(m.entryEnd(e))
+		start := e.StartTime
+		if start.Before(dayStart) {
+			start = dayStart
+		}
+
+		end := m.entryEnd(e)
+
+		sr := m.timeToRow(start)
+		var er int
+		if !end.Before(dayEnd) {
+			er = totalRows
+		} else {
+			er = m.timeToEndRow(end)
+		}
 
 		if er <= sr {
 			er = sr + 1
